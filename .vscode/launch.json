@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "CassaProloco",
+            "request": "launch",
+            "mainClass": "cassaproloco.Cassa",
+            "projectName": "cassa-proloco",
+            "cwd": "${workspaceFolder}",
+            "vmArgs": "-Dfile.encoding=UTF-8"
+        }
+    ]
+}

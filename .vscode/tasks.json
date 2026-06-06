@@ -1,0 +1,42 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Maven: Build JAR",
+            "type": "shell",
+            "command": "C:\\tools\\maven\\bin\\mvn.cmd",
+            "args": ["package", "-DskipTests"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$javac"
+        },
+        {
+            "label": "Maven: Clean",
+            "type": "shell",
+            "command": "C:\\tools\\maven\\bin\\mvn.cmd",
+            "args": ["clean"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run JAR",
+            "type": "shell",
+            "command": "java",
+            "args": ["-jar", "dist/CassaProloco.jar"],
+            "dependsOn": "Maven: Build JAR",
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}

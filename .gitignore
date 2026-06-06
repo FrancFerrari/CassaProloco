@@ -1,0 +1,30 @@
+# Build outputs
+/build/
+/target/
+/dist/CassaProloco.jar
+/dist/lib/
+
+# NetBeans private settings (macchina-specifici)
+/nbproject/private/
+
+# Dati runtime generati dall'applicazione
+/*.ser
+/report_*.csv
+
+# File di classe compilati
+*.class
+
+# File IDE Eclipse (se aperto con Eclipse)
+.classpath
+.project
+.settings/
+
+# Log
+*.log
+
+# Archivi di backup
+*.rar
+*.zip
+
+# Driver stampante (pesanti, da distribuire separatamente)
+/Driver/

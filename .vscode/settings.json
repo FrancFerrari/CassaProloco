@@ -1,0 +1,16 @@
+{
+    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-11.0.31.11-hotspot",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-11",
+            "path": "C:\\Program Files\\Eclipse Adoptium\\jdk-11.0.31.11-hotspot",
+            "default": true
+        }
+    ],
+    "maven.executable.path": "C:\\tools\\maven\\bin\\mvn.cmd",
+    "java.compile.nullAnalysis.mode": "disabled",
+    "files.exclude": {
+        "build/": true,
+        "nbproject/": false
+    }
+}
