@@ -1,153 +1,324 @@
 package cassaproloco;
 
 import com.formdev.flatlaf.FlatLightLaf;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.Toolkit;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.print.*;
-import java.io.*;
-import java.util.*;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.plaf.basic.BasicScrollBarUI;
+import java.awt.print.Book;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
+import java.awt.print.PrinterException;
+import java.awt.print.PrinterJob;
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.plaf.basic.BasicScrollBarUI;
 
+/**
+ * Finestra principale della cassa: a sinistra le categorie (primi/secondi/bere)
+ * e la barra di navigazione, a destra la toolbar, il carrello e il totale/stampa.
+ *
+ * <p>La logica di dominio è delegata ai servizi ({@link MenuConfigLoader},
+ * {@link GroupedItemStore}, {@link SalesRecorder}); la creazione dei menu
+ * combinati al {@link MenuBuilderPanel}.
+ */
+public class Cassa extends JFrame {
 
-public class Cassa extends javax.swing.JFrame {
+    // --- Dominio / servizi ---
+    private final Basket basket = new Basket();
+    private final GroupedItemStore store =
+            new GroupedItemStore(AppPaths.file("groupedItems.json"), AppPaths.file("groupedItems.ser"));
+    private List<GroupedItem> groupedItemList = new ArrayList<>();
 
-    protected static double fromCMToPPI(double cm) {
-        return toPPI(cm * 0.393700787);            
+    private final List<Item> itemsBere = new ArrayList<>();
+    private final List<Item> itemsPrimi = new ArrayList<>();
+    private final List<Item> itemsSecondi = new ArrayList<>();
+
+    private final int width;
+    private final int height;
+
+    // --- Componenti UI ---
+    private JPanel primi;       // griglia PRIMI (ospita anche i menu combinati)
+    private JPanel bere;        // griglia BERE
+    private JPanel secondi;     // griglia SECONDI
+    private JPanel selezione;   // stack (OverlayLayout) delle categorie
+    private MenuBuilderPanel menuBuilder;
+    private JPanelBasket basketPanel;
+    private JScrollPane basketScroll;
+    private JLabel lblTotal;
+
+    public Cassa() throws IOException {
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        width = (int) screen.getWidth();
+        height = (int) screen.getHeight();
+
+        setTitle("CassaProloco");
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        getContentPane().setBackground(Theme.BACKGROUND);
+        setLayout(new BorderLayout());
+
+        add(buildLeftSide(), BorderLayout.LINE_START);
+        add(buildRightSide(), BorderLayout.CENTER);
+
+        wireBasket();
+        loadMenuItems();
+        menuBuilder.setItems(itemsBere, itemsPrimi, itemsSecondi);
+        loadGroupedItems();
+        showCategory(primi);
     }
 
-    protected static double toPPI(double inch) {            
-        return inch * 72d;            
+    // ============================ LATO SINISTRO ============================
+
+    private JPanel buildLeftSide() {
+        selezione = new JPanel(new java.awt.CardLayout());
+        selezione.setBackground(Theme.BACKGROUND);
+
+        primi = categoryGrid(new GridLayout(4, 5, 4, 4), new Dimension(700, 661));
+        secondi = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(700, 661));
+        bere = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(500, 661));
+        menuBuilder = new MenuBuilderPanel();
+        menuBuilder.setListener(this::onMenuCreated);
+
+        selezione.add(primi, "primi");
+        selezione.add(bere, "bere");
+        selezione.add(secondi, "secondi");
+        selezione.add(menuBuilder, "menu");
+
+        JPanel sx = new JPanel(new BorderLayout());
+        sx.setBackground(Theme.BACKGROUND);
+        sx.setPreferredSize(new Dimension((int) (width * 0.4), height));
+        sx.setBorder(new LineBorder(Theme.BACKGROUND, Theme.BORDER));
+        sx.add(buildNavBar(), BorderLayout.PAGE_START);
+        sx.add(selezione, BorderLayout.CENTER);
+        return sx;
     }
 
-    protected static String dump(Paper paper) {            
-        StringBuilder sb = new StringBuilder(64);
-        sb.append(paper.getWidth()).append("x").append(paper.getHeight())
-           .append("/").append(paper.getImageableX()).append("x").
-           append(paper.getImageableY()).append(" - ").append(paper
-       .getImageableWidth()).append("x").append(paper.getImageableHeight());            
-        return sb.toString();            
+    private JPanel categoryGrid(GridLayout layout, Dimension preferred) {
+        JPanel grid = new JPanel(layout);
+        grid.setOpaque(false);
+        grid.setPreferredSize(preferred);
+        return grid;
     }
 
-    protected static String dump(PageFormat pf) {    
-        Paper paper = pf.getPaper();            
-        return dump(paper);    
-    }
-    
-    public static class UIConstants {
-        public static final Color PRIMARY = new Color(82, 141, 164);
-        public static final Color SECONDARY = new Color(128, 209, 195);
-        public static final Color ACCENT = new Color(78, 108, 135);
-        public static final Dimension BUTTON_SIZE = new Dimension(200, 50);
-        public static final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 15);
+    private JPanel buildNavBar() {
+        JPanel nav = new JPanel(new GridLayout(1, 0, 2, 0));
+        nav.setBackground(Theme.BACKGROUND);
+        nav.setPreferredSize(new Dimension(width / 2, height / 6));
+        int fontSize = (int) (height * 0.03);
+        nav.add(navButton("PRIMI", fontSize, () -> showCategory(primi)));
+        nav.add(navButton("BERE", fontSize, () -> showCategory(bere)));
+        nav.add(navButton("SECONDI", fontSize, () -> showCategory(secondi)));
+        return nav;
     }
 
-    /** Carica una categoria dal .cfg e crea un pulsante per ogni voce; ogni
-     *  pulsante aggiunge direttamente il proprio Item al carrello. */
+    private JButton navButton(String text, int fontSize, Runnable action) {
+        JButton b = new JButton(text);
+        b.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
+        b.setFont(new Font("Segoe UI", Font.BOLD, fontSize));
+        b.setPreferredSize(new Dimension(width / 4, height / 10));
+        b.addActionListener(e -> action.run());
+        return b;
+    }
+
+    /** Mostra solo la categoria indicata (CardLayout). */
+    private void showCategory(JPanel toShow) {
+        String name = "primi";
+        if (toShow == bere) name = "bere";
+        else if (toShow == secondi) name = "secondi";
+        else if (toShow == menuBuilder) name = "menu";
+        ((java.awt.CardLayout) selezione.getLayout()).show(selezione, name);
+    }
+
+    // ============================ LATO DESTRO ============================
+
+    private JPanel buildRightSide() {
+        JPanel right = new JPanel(new BorderLayout(0, 10));
+        right.setBackground(Theme.BACKGROUND);
+        right.setPreferredSize(new Dimension((int) (width * 0.6), height));
+        right.setBorder(new LineBorder(Theme.BACKGROUND, Theme.BORDER));
+
+        right.add(buildToolbar(), BorderLayout.PAGE_START);
+        right.add(buildBasketArea(), BorderLayout.CENTER);
+        right.add(buildBottomBar(), BorderLayout.PAGE_END);
+        return right;
+    }
+
+    private JPanel buildToolbar() {
+        JPanel toolbar = new JPanel();
+        toolbar.setBackground(Theme.BACKGROUND);
+        int fontSize = (int) (height * 0.02);
+
+        toolbar.add(toolbarButton("RESOCONTO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
+                this::showSalesReport));
+        toolbar.add(toolbarButton("OMAGGIO",
+                new Color(70, 130, 180), new Color(100, 160, 210), new Color(40, 90, 140), fontSize,
+                basket::setPricesToZero));
+        toolbar.add(toolbarButton("MENU'",
+                new Color(90, 150, 90), new Color(120, 180, 120), new Color(60, 120, 60), fontSize,
+                () -> showCategory(menuBuilder)));
+        return toolbar;
+    }
+
+    private JButton toolbarButton(String text, Color base, Color hover, Color click, int fontSize, Runnable action) {
+        JButton b = new JButton(text);
+        b.setUI(new ModernButtonUI(base, hover, click, Color.WHITE));
+        b.setFont(new Font("Helvetica", Font.BOLD, fontSize));
+        b.setFocusPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setPreferredSize(new Dimension(120, 40));
+        b.addActionListener(e -> action.run());
+        return b;
+    }
+
+    private JScrollPane buildBasketArea() {
+        basketPanel = new JPanelBasket();
+        basketPanel.setBackground(Theme.BASKET_BG);
+        basketPanel.setLayout(new VerticalFlowLayout());
+
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBorder(new EmptyBorder(20, 0, 0, 0));
+        wrapper.setBackground(Theme.BASKET_BG);
+        wrapper.add(basketPanel, BorderLayout.CENTER);
+
+        basketScroll = new JScrollPane(wrapper);
+        basketScroll.setBackground(Theme.BASKET_BG);
+        basketScroll.setBorder(null);
+        basketScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        basketScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        basketScroll.setPreferredSize(new Dimension(260, 300));
+        basketScroll.getVerticalScrollBar().setUI(slimScrollBarUI());
+
+        DragScrollListener dl = new DragScrollListener(basketPanel);
+        basketScroll.addMouseListener(dl);
+        basketScroll.addMouseMotionListener(dl);
+        return basketScroll;
+    }
+
+    private BasicScrollBarUI slimScrollBarUI() {
+        return new BasicScrollBarUI() {
+            @Override
+            protected void configureScrollBarColors() {
+                this.thumbColor = Theme.PRIMARY;
+                this.thumbDarkShadowColor = Theme.PRIMARY;
+                this.thumbLightShadowColor = Theme.PRIMARY;
+                this.trackColor = new Color(238, 238, 238);
+            }
+            @Override
+            protected JButton createDecreaseButton(int orientation) {
+                return zeroButton();
+            }
+            @Override
+            protected JButton createIncreaseButton(int orientation) {
+                return zeroButton();
+            }
+            private JButton zeroButton() {
+                JButton b = new JButton();
+                b.setPreferredSize(new Dimension(0, 0));
+                b.setMinimumSize(new Dimension(0, 0));
+                b.setMaximumSize(new Dimension(0, 0));
+                return b;
+            }
+        };
+    }
+
+    private JPanel buildBottomBar() {
+        JPanel bottom = new JPanel(new GridLayout(1, 0));
+        bottom.setBackground(Theme.BACKGROUND);
+        bottom.setPreferredSize(new Dimension(width / 2, height / 10));
+
+        JButton btnPrint = new JButton("STAMPA");
+        btnPrint.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
+        btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 25));
+        btnPrint.setHorizontalAlignment(SwingConstants.LEFT);
+        btnPrint.addActionListener(e -> printAndRecord());
+        bottom.add(btnPrint);
+
+        lblTotal = new JLabel("0.00€");
+        lblTotal.setHorizontalAlignment(SwingConstants.RIGHT);
+        bottom.add(lblTotal);
+        return bottom;
+    }
+
+    private void wireBasket() {
+        basket.setParent(basketPanel);
+        basketPanel.setBasket(basket);
+        basketPanel.setTotalLabel(lblTotal);
+        basketPanel.clear();
+    }
+
+    // ============================ MENU / DATI ============================
+
+    /** Crea un pulsante categoria che aggiunge il proprio Item al carrello. */
+    private JButton createMenuButton(String text, ActionListener listener) {
+        JButton b = new JButton(text);
+        b.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
+        Dimension size = new Dimension(200, 50);
+        b.setPreferredSize(size);
+        b.setMaximumSize(size);
+        b.setMinimumSize(size);
+        b.setFont(adjustFontToFit(b, text, size.width));
+        b.addActionListener(listener);
+        return b;
+    }
+
+    private Font adjustFontToFit(JButton button, String text, int boxWidth) {
+        Font font = Theme.BUTTON_FONT;
+        int available = boxWidth - 20;
+        int size = font.getSize();
+        while (button.getFontMetrics(font).stringWidth(text) > available && size > 8) {
+            size--;
+            font = font.deriveFont((float) size);
+        }
+        return font;
+    }
+
+    private void loadMenuItems() {
+        readItemsFile(AppPaths.file("primi.cfg"), itemsPrimi, primi);
+        readItemsFile(AppPaths.file("bere.cfg"), itemsBere, bere);
+        readItemsFile(AppPaths.file("secondi.cfg"), itemsSecondi, secondi);
+    }
+
     private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
         try {
             for (Item item : MenuConfigLoader.load(file)) {
                 listItems.add(item);
-                JButton b = createMenuButton(item.getText(), e -> basketPanel.addItem(item));
-                panel.add(b);
+                panel.add(createMenuButton(item.getText(), e -> basketPanel.addItem(item)));
             }
         } catch (IOException ex) {
             Logger.getLogger(Cassa.class.getName())
                   .log(Level.SEVERE, "Errore lettura file " + file.getName(), ex);
             JOptionPane.showMessageDialog(this,
                 "Errore lettura file " + file.getName() + ": " + ex.getMessage(),
-                "ERRORE", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private JButton createMenuButton(String text, ActionListener listener) {
-        JButton b = new JButton(text);
-        b.setUI(new ModernButtonUI(
-            UIConstants.PRIMARY,
-            UIConstants.SECONDARY,
-            UIConstants.ACCENT,
-            Color.WHITE));
-
-        b.setPreferredSize(UIConstants.BUTTON_SIZE);
-        b.setMaximumSize(UIConstants.BUTTON_SIZE);
-        b.setMinimumSize(UIConstants.BUTTON_SIZE);
-        b.setFont(adjustFontToFit(b, text));
-        b.addActionListener(listener);
-        return b;
-    }
-    
-    private Font adjustFontToFit(JButton button, String text) {
-        Font baseFont = UIConstants.BUTTON_FONT;
-        int availableWidth = UIConstants.BUTTON_SIZE.width - 20; // margine interno
-        int fontSize = baseFont.getSize();
-
-        FontMetrics fm = button.getFontMetrics(baseFont);
-
-        // Scala finché il testo non sta dentro il bottone
-        while (fm.stringWidth(text) > availableWidth && fontSize > 8) {
-            fontSize--;
-            baseFont = baseFont.deriveFont((float) fontSize);
-            fm = button.getFontMetrics(baseFont);
-        }
-
-        return baseFont;
-    }
-
-    /* Importa un gruppo e aggiunge il pulsante con menu contestuale */
-    public void importMenu(GroupedItem gi) {
-        JButton b = createMenuButton(
-            gi.getText(GroupedItem.Course.MENU),
-            evt -> {
-                basketPanel.addGroupedItem(gi);
-                System.out.println("GroupedItem aggiunto: " + gi);
-            }
-        );
-
-        // Aggiungi menu contestuale per rimozione
-        JPopupMenu popup = new JPopupMenu();
-        JMenuItem removeItem = new JMenuItem("Rimuovi menu");
-        removeItem.addActionListener(e -> removeGroupedItem(gi, b));
-        popup.add(removeItem);
-
-        b.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
-                if (e.isPopupTrigger()) popup.show(b, e.getX(), e.getY());
-            }
-            public void mouseReleased(MouseEvent e) {
-                if (e.isPopupTrigger()) popup.show(b, e.getX(), e.getY());
-            }
-        });
-
-        primi.add(b);
-        primi.revalidate();
-        primi.repaint();
-    }
-
-    /* Rimuove il menu sia dalla UI che dal file serializzato */
-    private void removeGroupedItem(GroupedItem gi, JButton button) {
-        // Rimuovi dal pannello
-        primi.remove(button);
-        primi.revalidate();
-        primi.repaint();
-
-        // Rimuovi dalla lista e aggiorna file
-        groupedItemList.remove(gi);
-        try {
-            store.save(groupedItemList);
-            System.out.println("GroupedItems aggiornati dopo rimozione.");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Errore salvataggio dopo rimozione: " + ex.getMessage(),
                 "ERRORE", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -159,872 +330,146 @@ public class Cassa extends javax.swing.JFrame {
         }
     }
 
-    public List<GroupedItem> getGroupedItemList() {
-        return groupedItemList;
-    }
-    /**
-     * Creates new form Cassa
-     * @throws java.io.IOException
-     */
-    public Cassa() throws IOException {
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        width = (int) screenSize.getWidth();
-        height = (int) screenSize.getHeight();
+    /** Aggiunge il pulsante di un menu combinato (con menu contestuale di rimozione). */
+    public void importMenu(GroupedItem gi) {
+        JButton b = createMenuButton(gi.getText(GroupedItem.Course.MENU),
+                e -> basketPanel.addGroupedItem(gi));
 
-        //setUndecorated(true);
-        setSize(screenSize);
-        setExtendedState(JFrame.MAXIMIZED_BOTH); // opzionale: massimizza la finestra
-        initComponents();
-        Color bordoColor = new Color(58, 48, 66);
-        int bordoSpessore = 20;
-
-        SX.setBorder(new LineBorder(bordoColor, bordoSpessore));
-        jPanel1.setBorder(new LineBorder(bordoColor, bordoSpessore));
-        basket = new Basket();
-        basket.setParent(basketPanel);
-        basketPanel.setBasket(basket);
-        basketPanel.setTotalLabel(lblTotal);
-        basketPanel.clear();
-
-        basketScroll.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
-            @Override
-            protected void configureScrollBarColors() {
-                this.thumbColor = new Color(82,141,164);
-                this.thumbDarkShadowColor = new Color(82,141,164);
-                this.thumbLightShadowColor = new Color(82,141,164);
-                this.trackColor = new Color(238, 238, 238);
-        }
-            @Override
-        protected JButton createDecreaseButton(int orientation) {
-            return createZeroButton();
-        }
-            @Override
-        protected JButton createIncreaseButton(int orientation) {
-            return createZeroButton();
-        }
-        private JButton createZeroButton() {
-            JButton button = new JButton();
-            button.setPreferredSize(new Dimension(0, 0));
-            button.setMinimumSize(new Dimension(0, 0));
-            button.setMaximumSize(new Dimension(0, 0));
-            return button;
-        }
+        JPopupMenu popup = new JPopupMenu();
+        JMenuItem removeItem = new JMenuItem("Rimuovi menu");
+        removeItem.addActionListener(e -> removeGroupedItem(gi, b));
+        popup.add(removeItem);
+        b.addMouseListener(new MouseAdapter() {
+            @Override public void mousePressed(MouseEvent e) {
+                if (e.isPopupTrigger()) popup.show(b, e.getX(), e.getY());
+            }
+            @Override public void mouseReleased(MouseEvent e) {
+                if (e.isPopupTrigger()) popup.show(b, e.getX(), e.getY());
+            }
         });
-        
-        File Fbere = AppPaths.file("bere.cfg");
-        File Fprimi = AppPaths.file("primi.cfg");
-        File Fsecondi = AppPaths.file("secondi.cfg");
 
-        itemsPrimi = new ArrayList<>();
-        itemsSecondi = new ArrayList<>();
-        itemsBere = new ArrayList<>();
-        itemListMenuBere = new ArrayList<>();
-        itemListMenuPrimi = new ArrayList<>();
-        itemListMenuSecondi = new ArrayList<>();
-        groupedItemList = new ArrayList<>();
+        primi.add(b);
+        primi.revalidate();
+        primi.repaint();
+    }
 
-        readItemsFile(Fprimi, itemsPrimi, primi);
-        readItemsFile(Fbere, itemsBere, bere);
-        readItemsFile(Fsecondi, itemsSecondi, secondi);
-        
-        setBoxTextPrimi(itemsPrimi);
-        setBoxTextSecondi(itemsSecondi);
-        setBoxTextBere(itemsBere);
-        
-        bere.setVisible(false);
-        primi.setVisible(false);
-        secondi.setVisible(false);
-        setMenu.setVisible(false);
-        
-        boxPrimi.setEnabled(false);
-        boxSecondi.setEnabled(false);
-        loadGroupedItems();
-        
-    }
-    
-    private void setBoxTextBere(ArrayList<Item> listItems) {
-        boxBere.removeAllItems();
-        itemListMenuBere.clear();
-        for (Item item : listItems) {
-            boxBere.addItem(item.getText());
-            itemListMenuBere.add(item);
-        }
-    }
-    
-    private void setBoxTextPrimi(ArrayList<Item> listItems) {
-        boxPrimi.removeAllItems();
-        itemListMenuPrimi.clear();
-
-        for (Item item : listItems) {
-            boxPrimi.addItem(item.getText());
-            itemListMenuPrimi.add(item);
-        }
-    }
-    
-    private void setBoxTextSecondi(ArrayList<Item> listItems) {
-        boxSecondi.removeAllItems();
-        itemListMenuSecondi.clear();
-
-        for (Item item : listItems) {
-            boxSecondi.addItem(item.getText());
-            itemListMenuSecondi.add(item);
-        }
-    }
-    
-    private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label) {
-        Book book = new Book();
-        ModelloStampa ms = new ModelloStampa(price, qty, name, new Date());
-        book.append(ms, pf);
-        job.setPageable(book);
+    private void removeGroupedItem(GroupedItem gi, JButton button) {
+        primi.remove(button);
+        primi.revalidate();
+        primi.repaint();
+        groupedItemList.remove(gi);
         try {
-            job.print();
-        } catch (PrinterException e) {
+            store.save(groupedItemList);
+        } catch (IOException ex) {
             JOptionPane.showMessageDialog(this,
-                "Errore stampa " + label + ": " + e.getMessage(),
+                "Errore salvataggio dopo rimozione: " + ex.getMessage(),
                 "ERRORE", JOptionPane.ERROR_MESSAGE);
         }
     }
-    @SuppressWarnings("unchecked")
 
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-
-        Contenitore = new javax.swing.JPanel();
-        SX = new javax.swing.JPanel();
-        selezione = new javax.swing.JPanel();
-        primi = new javax.swing.JPanel();
-        setMenu = new javax.swing.JPanel();
-        boxPrimi = new javax.swing.JComboBox<>();
-        boxSecondi = new javax.swing.JComboBox<>();
-        boxBere = new javax.swing.JComboBox<>();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
-        jLabel3 = new javax.swing.JLabel();
-        confermaBtn = new javax.swing.JButton();
-        prezzoLabel = new javax.swing.JTextField();
-        menuLabel1 = new javax.swing.JTextField();
-        jLabel6 = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
-        AbilitaPrimi = new javax.swing.JCheckBox();
-        AbilitaSecondi = new javax.swing.JCheckBox();
-        jLabel7 = new javax.swing.JLabel();
-        AbilitaCaffe = new javax.swing.JCheckBox();
-        AbilitaDolce = new javax.swing.JCheckBox();
-        jLabel8 = new javax.swing.JLabel();
-        bere = new javax.swing.JPanel();
-        secondi = new javax.swing.JPanel();
-        Blaterale = new javax.swing.JPanel();
-        Secondi = new javax.swing.JButton();
-        Bere = new javax.swing.JButton();
-        Primi = new javax.swing.JButton();
-        jPanel1 = new javax.swing.JPanel();
-        ToolBar = new javax.swing.JPanel();
-        resocontoBtn = new javax.swing.JButton();
-        OmaggioBtn = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
-        basketScroll = new javax.swing.JScrollPane();
-        basketPanel = new cassaproloco.JPanelBasket();
-        jPanel2 = new javax.swing.JPanel();
-        btnPrint = new javax.swing.JButton();
-        lblTotal = new javax.swing.JLabel();
-
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setBackground(new java.awt.Color(58, 48, 66));
-        setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        setForeground(java.awt.Color.darkGray);
-
-        Contenitore.setPreferredSize(new Dimension((int)(width), (int)(height)));
-        Contenitore.setOpaque(true);
-        Contenitore.setBackground(new java.awt.Color(58, 48, 66));
-        Contenitore.setForeground(new java.awt.Color(58, 48, 66));
-        Contenitore.setToolTipText("");
-        Contenitore.setLayout(new java.awt.BorderLayout());
-
-        SX.setPreferredSize(new Dimension((int)(width*0.4), (int)(height)));
-        SX.setBackground(new java.awt.Color(58, 48, 66));
-        SX.setLayout(new java.awt.BorderLayout());
-
-        selezione.setBackground(new java.awt.Color(58, 48, 66));
-        selezione.setPreferredSize(new java.awt.Dimension(100, 100));
-        selezione.setLayout(new javax.swing.OverlayLayout(selezione));
-
-        primi.setOpaque(true);
-        primi.setBackground(new java.awt.Color(58, 48, 66));
-        primi.setMinimumSize(new java.awt.Dimension(700, 661));
-        primi.setOpaque(false);
-        primi.setPreferredSize(new java.awt.Dimension(700, 661));
-        primi.setLayout(new java.awt.GridLayout(4, 5, 4, 4));
-        selezione.add(primi);
-
-        setMenu.setOpaque(true);
-        setMenu.setBackground(new java.awt.Color(58, 48, 66));
-        setMenu.setMinimumSize(new java.awt.Dimension(500, 661));
-        setMenu.setOpaque(false);
-        setMenu.setPreferredSize(new java.awt.Dimension(500, 661));
-
-        boxPrimi.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        boxPrimi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                boxPrimiActionPerformed(evt);
-            }
-        });
-
-        boxSecondi.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        boxSecondi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                boxSecondiActionPerformed(evt);
-            }
-        });
-
-        boxBere.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        boxBere.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                boxBereActionPerformed(evt);
-            }
-        });
-
-        jLabel1.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel1.setText("PRIMI");
-        jLabel1.setForeground(new java.awt.Color(221, 221, 221));
-
-        jLabel2.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel2.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel2.setText("SECONDI");
-        jLabel2.setForeground(new java.awt.Color(221, 221, 221));
-
-        jLabel3.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel3.setText("BERE");
-        jLabel3.setForeground(new java.awt.Color(221, 221, 221));
-
-        confermaBtn.setText("Conferma");
-        confermaBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                confermaBtnActionPerformed(evt);
-            }
-        });
-
-        prezzoLabel.setText("Inserire col punto");
-        prezzoLabel.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                prezzoLabelActionPerformed(evt);
-            }
-        });
-
-        menuLabel1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                menuLabel1ActionPerformed(evt);
-            }
-        });
-
-        jLabel6.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel6.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel6.setText("PREZZO");
-        jLabel3.setForeground(new java.awt.Color(221, 221, 221));
-
-        jLabel4.setBackground(new java.awt.Color(255, 255, 255));
-        jLabel4.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel4.setText("NOME ");
-        jLabel3.setForeground(new java.awt.Color(221, 221, 221));
-
-        AbilitaPrimi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                AbilitaPrimiActionPerformed(evt);
-            }
-        });
-
-        AbilitaSecondi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                AbilitaSecondiActionPerformed(evt);
-            }
-        });
-
-        jLabel7.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel7.setText("CAFFE'");
-        jLabel3.setForeground(new java.awt.Color(221, 221, 221));
-
-        AbilitaCaffe.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                AbilitaCaffeActionPerformed(evt);
-            }
-        });
-
-        AbilitaDolce.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                AbilitaDolceActionPerformed(evt);
-            }
-        });
-
-        jLabel8.setForeground(new java.awt.Color(255, 255, 255));
-        jLabel8.setText("DOLCE");
-        jLabel3.setForeground(new java.awt.Color(221, 221, 221));
-
-        javax.swing.GroupLayout setMenuLayout = new javax.swing.GroupLayout(setMenu);
-        setMenu.setLayout(setMenuLayout);
-        setMenuLayout.setHorizontalGroup(
-            setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(setMenuLayout.createSequentialGroup()
-                .addGap(45, 45, 45)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jLabel3)
-                    .addGroup(setMenuLayout.createSequentialGroup()
-                        .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                .addGroup(setMenuLayout.createSequentialGroup()
-                                    .addComponent(jLabel6)
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(prezzoLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 153, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGroup(setMenuLayout.createSequentialGroup()
-                                    .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 69, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                        .addGroup(setMenuLayout.createSequentialGroup()
-                                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                                            .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                                .addComponent(boxPrimi, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                                .addComponent(boxSecondi, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                                        .addGroup(setMenuLayout.createSequentialGroup()
-                                            .addGap(13, 13, 13)
-                                            .addComponent(boxBere, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                                .addGroup(setMenuLayout.createSequentialGroup()
-                                    .addComponent(jLabel4)
-                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(menuLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 153, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                            .addComponent(jLabel7)
-                            .addComponent(jLabel8))
-                        .addGap(30, 30, 30)
-                        .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(AbilitaCaffe, javax.swing.GroupLayout.PREFERRED_SIZE, 87, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(AbilitaPrimi, javax.swing.GroupLayout.PREFERRED_SIZE, 87, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(AbilitaSecondi, javax.swing.GroupLayout.PREFERRED_SIZE, 87, javax.swing.GroupLayout.PREFERRED_SIZE)
-                            .addComponent(confermaBtn, javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(AbilitaDolce, javax.swing.GroupLayout.PREFERRED_SIZE, 87, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-        );
-        setMenuLayout.setVerticalGroup(
-            setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(setMenuLayout.createSequentialGroup()
-                .addGap(28, 28, 28)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(AbilitaPrimi, javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(boxPrimi, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel1)))
-                .addGap(26, 26, 26)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(AbilitaSecondi, javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(boxSecondi, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel2)))
-                .addGap(26, 26, 26)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(boxBere, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel3))
-                .addGap(18, 18, 18)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jLabel7)
-                    .addComponent(AbilitaCaffe))
-                .addGap(18, 18, 18)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(AbilitaDolce)
-                    .addComponent(jLabel8))
-                .addGap(19, 19, 19)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel6)
-                    .addComponent(prezzoLabel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(28, 28, 28)
-                .addGroup(setMenuLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(confermaBtn)
-                    .addComponent(menuLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel4))
-                .addContainerGap(196, Short.MAX_VALUE))
-        );
-
-        selezione.add(setMenu);
-
-        bere.setOpaque(true);
-        bere.setBackground(new java.awt.Color(58, 48, 66));
-        bere.setMinimumSize(new java.awt.Dimension(500, 661));
-        bere.setOpaque(false);
-        bere.setPreferredSize(new java.awt.Dimension(500, 661));
-        bere.setLayout(new java.awt.GridLayout(5, 5, 4, 4));
-
-        selezione.add(bere);
-
-        secondi.setOpaque(true);
-        secondi.setBackground(new java.awt.Color(58, 48, 66));
-        secondi.setMinimumSize(new java.awt.Dimension(700, 661));
-        secondi.setOpaque(false);
-        secondi.setPreferredSize(new java.awt.Dimension(700, 661));
-        secondi.setLayout(new java.awt.GridLayout(5, 5, 4, 4));
-        selezione.add(secondi);
-
-        SX.add(selezione, java.awt.BorderLayout.CENTER);
-
-        Blaterale.setPreferredSize(new Dimension(width/2, height/6)); // 20% della larghezza
-        Blaterale.setBackground(new java.awt.Color(58, 48, 66));
-        Blaterale.setLayout(new java.awt.GridLayout(1, 0, 2, 0));
-
-        Secondi.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(228,136,106, null)[0],Color.RGBtoHSB(228,136,106, null)[1],Color.RGBtoHSB(228,136,106, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        bottnSize = this.getSize();
-        int fontSize = (int)(bottnSize.height * 0.03);
-        Secondi.setFont(new java.awt.Font("Segoe UI", 1, fontSize));
-        Secondi.setPreferredSize(new Dimension(width/4, height/10));
-        Secondi.setText("PRIMI");
-        Secondi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                SecondiActionPerformed(evt);
-            }
-        });
-        Blaterale.add(Secondi);
-
-        Bere.setPreferredSize(new Dimension(width/4, height/10));
-        Bere.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(228,136,106, null)[0],Color.RGBtoHSB(228,136,106, null)[1],Color.RGBtoHSB(228,136,106, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        Bere.setFont(new java.awt.Font("Segoe UI", 1, fontSize));
-        Bere.setLabel("BERE");
-        Bere.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                BereActionPerformed(evt);
-            }
-        });
-        Blaterale.add(Bere);
-
-        Primi.setFont(new java.awt.Font("Segoe UI", 1, fontSize));
-        Primi.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(228,136,106, null)[0],Color.RGBtoHSB(228,136,106, null)[1],Color.RGBtoHSB(228,136,106, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        Primi.setText("SECONDI");
-        Primi.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                PrimiActionPerformed(evt);
-            }
-        });
-        Blaterale.add(Primi);
-
-        SX.add(Blaterale, java.awt.BorderLayout.PAGE_START);
-
-        Contenitore.add(SX, java.awt.BorderLayout.LINE_START);
-
-        jPanel1.setOpaque(true);
-        jPanel1.setPreferredSize(new Dimension((int)(width*0.6), (int)(height)));
-        jPanel1.setBackground(new java.awt.Color(58, 48, 66));
-        jPanel1.setToolTipText("");
-        jPanel1.setLayout(new java.awt.BorderLayout(0, 10));
-
-        ToolBar.setBackground(Theme.BACKGROUND);
-
-        toolbarSize = this.getSize();
-        int toolbarFontSize = (int)(toolbarSize.height * 0.02);
-
-        // RESOCONTO - stile teal coerente con i pulsanti menu
-        resocontoBtn.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
-        resocontoBtn.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
-        resocontoBtn.setFocusPainted(false);
-        resocontoBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        resocontoBtn.setPreferredSize(new Dimension(120, 40));
-        resocontoBtn.setText("RESOCONTO");
-        resocontoBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                resocontoBtnActionPerformed(evt);
-            }
-        });
-        ToolBar.add(resocontoBtn);
-
-        // OMAGGIO - stile blu
-        OmaggioBtn.setUI(new ModernButtonUI(
-            new Color(70, 130, 180), new Color(100, 160, 210), new Color(40, 90, 140), Color.WHITE));
-        OmaggioBtn.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
-        OmaggioBtn.setFocusPainted(false);
-        OmaggioBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        OmaggioBtn.setPreferredSize(new Dimension(120, 40));
-        OmaggioBtn.setText("OMAGGIO");
-        OmaggioBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                OmaggioBtnActionPerformed(evt);
-            }
-        });
-        ToolBar.add(OmaggioBtn);
-
-        jButton4.setUI(new ModernButtonUI(
-            new Color(90, 150, 90),    // colore base verde
-            new Color(120, 180, 120),  // hover
-            new Color(60, 120, 60),    // click
-            Color.WHITE                // testo bianco
-        ));
-        jButton4.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
-        jButton4.setFocusPainted(false);
-        jButton4.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        jButton4.setPreferredSize(new Dimension(120, 40));
-        jButton4.setText("MENU'");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
-            }
-        });
-        ToolBar.add(jButton4);
-
-        jPanel1.add(ToolBar, java.awt.BorderLayout.PAGE_START);
-
-        basketScroll.setBackground(new java.awt.Color(220, 234, 244));
-        basketScroll.setForeground(new java.awt.Color(220, 234, 244));
-        basketScroll.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        basketScroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-        basketScroll.setPreferredSize(new java.awt.Dimension(260, 300));
-
-        btnPrint.setPreferredSize(new Dimension(width/2, height/10));
-        basketPanel.setBackground(new java.awt.Color(220, 234, 244));
-        basketPanel.setLayout(new cassaproloco.VerticalFlowLayout());
-        basketScroll.setViewportView(basketPanel);
-        //basketPanel.setPreferredSize(new java.awt.Dimension(40, 500));
-
-        jPanel1.add(basketScroll, java.awt.BorderLayout.CENTER);
-        DragScrollListener dl = new DragScrollListener(basketPanel);
-        basketScroll.addMouseListener(dl);
-        basketScroll.addMouseMotionListener(dl);
-        basketScroll.setBorder(null);
-
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBorder(new EmptyBorder(20, 0, 0, 0));  // margine superiore 20 px
-        wrapper.add(basketPanel, BorderLayout.CENTER);
-        wrapper.setBackground(new java.awt.Color(220, 234, 244));
-
-        basketScroll.setViewportView(wrapper);
-
-        jPanel2.setPreferredSize(new Dimension(width/2, height/10));
-        jPanel2.setBackground(new java.awt.Color(58, 48, 66));
-        jPanel2.setToolTipText("");
-        jPanel2.setLayout(new java.awt.GridLayout(1, 0));
-
-        btnPrint.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(228,136,106, null)[0],Color.RGBtoHSB(228,136,106, null)[1],Color.RGBtoHSB(228,136,106, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        btnPrint.setFont(new java.awt.Font("Segoe UI", 1, 25)); // NOI18N
-        btnPrint.setText("STAMPA");
-        btnPrint.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        btnPrint.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
-        btnPrint.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnPrintActionPerformed(evt);
-            }
-        });
-        jPanel2.add(btnPrint);
-
-        lblTotal.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblTotal.setText("lblTotal");
-        jPanel2.add(lblTotal);
-
-        jPanel1.add(jPanel2, java.awt.BorderLayout.PAGE_END);
-
-        Contenitore.add(jPanel1, java.awt.BorderLayout.LINE_END);
-
-        getContentPane().add(Contenitore, java.awt.BorderLayout.CENTER);
-
-        setBounds(0, 0, 872, 539);
-    }// </editor-fold>//GEN-END:initComponents
-
-    /** Mostra solo la categoria indicata (gli altri pannelli vengono nascosti). */
-    private void showCategory(javax.swing.JComponent toShow) {
-        bere.setVisible(toShow == bere);
-        primi.setVisible(toShow == primi);
-        secondi.setVisible(toShow == secondi);
-        setMenu.setVisible(toShow == setMenu);
-    }
-
-    private void BereActionPerformed(java.awt.event.ActionEvent evt) {
-        showCategory(bere);
-    }
-
-    private void SecondiActionPerformed(java.awt.event.ActionEvent evt) {
-        showCategory(primi);
-    }
-
-    private void PrimiActionPerformed(java.awt.event.ActionEvent evt) {
-        showCategory(secondi);
-    }
-
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-            bere.setVisible(false);
-            primi.setVisible(false);
-            secondi.setVisible(false);
-            setMenu.setVisible(true);
-    }//GEN-LAST:event_jButton4ActionPerformed
-
-    private void confermaBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_confermaBtnActionPerformed
-    // 1) Parsing prezzo
-    float prezzo;
-    try {
-        prezzo = Float.parseFloat(prezzoLabel.getText());
-    } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(this,
-            "Il prezzo deve essere un numero.", "Errore", JOptionPane.ERROR_MESSAGE);
-        return;
-    }
-
-    // 2) Costruzione del GroupedItem
-    Item menu = new Item(1, prezzo, menuLabel1.getText(), menuLabel1.getText(), 1);
-    GroupedItem.Builder builder = new GroupedItem.Builder()
-        .withMenu(menu);
-
-    if (boxBere.getSelectedIndex() != -1) {
-        builder.withBeverage(itemListMenuBere.get(boxBere.getSelectedIndex()));
-    }
-    if (boxPrimi.getSelectedIndex() != -1) {
-        builder.withFirst(itemListMenuPrimi.get(boxPrimi.getSelectedIndex()));
-    }
-    if (boxSecondi.getSelectedIndex() != -1) {
-        builder.withSecond(itemListMenuSecondi.get(boxSecondi.getSelectedIndex()));
-    }
-
-    //  Aggiungo Dolce se abilitato
-    if (AbilitaDolce.isSelected()) {
-        // creo un Item con id “‐1” (o altro id “speciale”), prezzo 0, testo “Dolce”
-        Item dolce = new Item(
-            -1,          // id “fake” per il dolce
-            0f,          // prezzo nullo
-            "Dolce",     // textToPrint
-            "Dolce",     // textLong o simile
-            1            // quantità iniziale
-        );
-        builder.withDessert(dolce);
-    }
-
-    //  Aggiungo Caffè se abilitato
-    if (AbilitaCaffe.isSelected()) {
-        Item caffe = new Item(
-            -2,           // id “fake” per il caffè
-            0f,           // prezzo nullo
-            "Caffè",
-            "Caffè",
-            1
-        );
-        builder.withCoffee(caffe);
-    }
-    // Costruisco l’oggetto finale
-    GroupedItem newItem;
-    try {
-        newItem = builder.build();
-    } catch (IllegalStateException ex) {
-        JOptionPane.showMessageDialog(this,
-            "Devi selezionare almeno il menu principale.", "Errore", JOptionPane.ERROR_MESSAGE);
-        return;
-    }
-
-    // 3) Aggiungi il nuovo menu alla lista e salva
-    groupedItemList.add(newItem);
-    try {
-        store.save(groupedItemList);
-        System.out.println("GroupedItems salvati correttamente.");
-    } catch (IOException ex) {
-        ex.printStackTrace();
-    }
-
-    // 4) Aggiorna UI
-    importMenu(newItem);
-    JOptionPane.showMessageDialog(this,
-        "MENU' CREATO", "CONFERMA", JOptionPane.INFORMATION_MESSAGE);
-    }//GEN-LAST:event_confermaBtnActionPerformed
-
-    private void prezzoLabelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_prezzoLabelActionPerformed
-        
-    }//GEN-LAST:event_prezzoLabelActionPerformed
-
-    private void menuLabel1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_menuLabel1ActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_menuLabel1ActionPerformed
-
-    private void AbilitaPrimiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AbilitaPrimiActionPerformed
-        if (AbilitaPrimi.isSelected()) {
-            boxPrimi.setEnabled(true);
-        } else{
-            boxPrimi.setEnabled(false);
-            boxPrimi.setSelectedItem(null);
+    /** Callback del MenuBuilderPanel: salva e mostra il nuovo menu combinato. */
+    private void onMenuCreated(GroupedItem gi) {
+        groupedItemList.add(gi);
+        try {
+            store.save(groupedItemList);
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                "Errore salvataggio menu: " + ex.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
         }
-    }//GEN-LAST:event_AbilitaPrimiActionPerformed
-
-    private void AbilitaSecondiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AbilitaSecondiActionPerformed
-        if (AbilitaSecondi.isSelected()) {
-            boxSecondi.setEnabled(true);
-        } else{
-            boxSecondi.setEnabled(false);
-            boxSecondi.setSelectedItem(null);
-        }
-        
-    }//GEN-LAST:event_AbilitaSecondiActionPerformed
-
-    private void boxPrimiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_boxPrimiActionPerformed
-        if (AbilitaPrimi.isSelected()) {
-            boxPrimi.setEnabled(true);
-        } else{
-            boxPrimi.setEnabled(false);
-            boxPrimi.setSelectedItem(null);
-        }
-    }//GEN-LAST:event_boxPrimiActionPerformed
-
-    private void boxBereActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_boxBereActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_boxBereActionPerformed
-
-    private void boxSecondiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_boxSecondiActionPerformed
-        if (AbilitaSecondi.isSelected()) {
-            boxSecondi.setEnabled(true);
-        } else{
-            boxSecondi.setEnabled(false);
-            boxSecondi.setSelectedItem(null);
-        }
-        
-    }//GEN-LAST:event_boxSecondiActionPerformed
-
-    private void OmaggioBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_OmaggioBtnActionPerformed
-       basket.setPricesToZero();
-    }//GEN-LAST:event_OmaggioBtnActionPerformed
-
-    private void AbilitaCaffeActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AbilitaCaffeActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_AbilitaCaffeActionPerformed
-
-    private void btnPrintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnPrintActionPerformed
-
-    // Setup stampa
-    PrinterJob job = PrinterJob.getPrinterJob();
-    PageFormat pf = job.defaultPage();
-    Paper paper = pf.getPaper();
-    double width = fromCMToPPI(6.2), height = fromCMToPPI(4);
-    paper.setSize(width, height);
-    paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0),
-            width, height - fromCMToPPI(1));
-    pf.setOrientation(PageFormat.PORTRAIT);
-    pf.setPaper(paper);
-
-    // Prepara CSV
-    LocalDate today = LocalDate.now();
-    String todayStr = today.format(DateTimeFormatter.ISO_DATE); // "2025-06-28"
-    File file = AppPaths.file("report_" + todayStr + ".csv");
-
-
-    boolean fileExists = file.exists();
-    ArrayList<String[]> toWrite = new ArrayList<>();
-    if (!fileExists) {
-        toWrite.add(new String[] {"Data", "Nome", "Quantità", "PrezzoUnitario"});
+        importMenu(gi);
     }
 
-    // Ciclo prodotti
-    int count = basketPanel.getArticlesCount();
-    for (int idx = 0; idx < count; idx++) {
-        JPanelBasketLine line = basketPanel.getArticles(idx);
-        boolean isGroup = line.isGrouped();
-        int qty = isGroup
-                ? basket.getGroupedItemQty(line.getGroupedItem())
-                : basket.getItemQty(line.getItem());
+    private void showSalesReport() {
+        JPanel pannello = new PannelloResocontoVendite(AppPaths.base());
+        JFrame frame = new JFrame("Resoconto Vendite");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setContentPane(pannello);
+        frame.setSize(500, 400);
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
 
-        if (qty <= 0) continue;
+    // ============================ STAMPA ============================
 
-        if (line.isUnitPrinting()) {
-            if (!isGroup) {
-                Item item = line.getItem();
-                printOnce(item, pf, job, qty);
-                toWrite.add(new String[] {
-                        todayStr,
-                        item.getText(),
-                        String.valueOf(qty),
-                        String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(item))
-                });
-            } else {
-                    GroupedItem gi = line.getGroupedItem();
+    /** Stampa gli scontrini del carrello e registra le vendite su CSV. */
+    private void printAndRecord() {
+        PrinterJob job = PrinterJob.getPrinterJob();
+        PageFormat pf = job.defaultPage();
+        Paper paper = pf.getPaper();
+        double w = fromCMToPPI(6.2), h = fromCMToPPI(4);
+        paper.setSize(w, h);
+        paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0), w, h - fromCMToPPI(1));
+        pf.setOrientation(PageFormat.PORTRAIT);
+        pf.setPaper(paper);
 
-                    // Stampa le singole portate
-                    for (GroupedItem.Course c : Arrays.asList(
-                            GroupedItem.Course.BEVERAGE,
-                            GroupedItem.Course.FIRST,
-                            GroupedItem.Course.SECOND,
-                            GroupedItem.Course.DESSERT,
-                            GroupedItem.Course.COFFEE)) {
-                                gi.getItem(c).ifPresent(item ->
-                                    printItem(job, pf, gi.getText(c), String.valueOf(qty), "", c.name().toLowerCase())
-                                );
-                    }
+        LocalDate today = LocalDate.now();
+        String todayStr = today.format(DateTimeFormatter.ISO_DATE);
+        File file = AppPaths.file("report_" + todayStr + ".csv");
 
-                    // CSV: salva solo il menu principale (nome + prezzo)
-                    toWrite.add(new String[] {
-                            todayStr,
-                            gi.getMenu().getText(),
-                            String.valueOf(qty),
-                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))
-                    });
-            }
-        } else {
-            for (int i = 0; i < qty; i++) {
+        List<String[]> toWrite = new ArrayList<>();
+        if (!file.exists()) {
+            toWrite.add(new String[] {"Data", "Nome", "Quantità", "PrezzoUnitario"});
+        }
+
+        List<GroupedItem.Course> courses = Arrays.asList(
+                GroupedItem.Course.BEVERAGE, GroupedItem.Course.FIRST, GroupedItem.Course.SECOND,
+                GroupedItem.Course.DESSERT, GroupedItem.Course.COFFEE);
+
+        for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {
+            JPanelBasketLine line = basketPanel.getArticles(idx);
+            boolean isGroup = line.isGrouped();
+            int qty = isGroup ? basket.getGroupedItemQty(line.getGroupedItem())
+                              : basket.getItemQty(line.getItem());
+            if (qty <= 0) continue;
+
+            // "Unito" = un solo scontrino con la quantità; "Separato" = N scontrini da 1
+            int copies = line.isUnitPrinting() ? 1 : qty;
+            int qtyPerCopy = line.isUnitPrinting() ? qty : 1;
+
+            for (int copy = 0; copy < copies; copy++) {
                 if (!isGroup) {
                     Item item = line.getItem();
-                    printOnce(item, pf, job, 1);
+                    printOnce(item, pf, job, qtyPerCopy);
                     toWrite.add(new String[] {
-                            todayStr,
-                            item.getText(),
-                            "1",
+                            todayStr, item.getText(), String.valueOf(qtyPerCopy),
                             String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(item))
                     });
                 } else {
-                        GroupedItem gi = line.getGroupedItem();
-
-                        // STAMPA → mantieni la stampa delle singole portate
-                        for (GroupedItem.Course c : Arrays.asList(
-                            GroupedItem.Course.BEVERAGE,
-                            GroupedItem.Course.FIRST,
-                            GroupedItem.Course.SECOND,
-                            GroupedItem.Course.DESSERT,
-                            GroupedItem.Course.COFFEE
-                        )) {
-                                gi.getItem(c).ifPresent(item ->
-                                    printItem(job, pf, gi.getText(c), "1", "", c.name().toLowerCase())
-                                );
-                        }
-
-                        // CSV → salva solo il menu principale
-                        toWrite.add(new String[] {
-                            todayStr,
-                            gi.getMenu().getText(),                     // nome menu
-                            String.valueOf(1),
-                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))  // prezzo menu
-                        });
-
+                    GroupedItem gi = line.getGroupedItem();
+                    for (GroupedItem.Course c : courses) {
+                        gi.getItem(c).ifPresent(item ->
+                            printItem(job, pf, gi.getText(c), String.valueOf(qtyPerCopy), "", c.name().toLowerCase()));
+                    }
+                    toWrite.add(new String[] {
+                            todayStr, gi.getMenu().getText(), String.valueOf(qtyPerCopy),
+                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))
+                    });
                 }
             }
         }
+
+        try {
+            new SalesRecorder().append(file, toWrite);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this,
+                    "Errore durante il salvataggio del CSV:\n" + e.getMessage(),
+                    "Errore CSV", JOptionPane.ERROR_MESSAGE);
+        }
+
+        basket.restorePrices();
+        basket.clear();
+        basketPanel.clear();
     }
 
-    // Salva su CSV in append mode
-    try {
-        new SalesRecorder().append(file, toWrite);
-    } catch (IOException e) {
-        JOptionPane.showMessageDialog(this,
-                "Errore durante il salvataggio del CSV:\n" + e.getMessage(),
-                "Errore CSV", JOptionPane.ERROR_MESSAGE);
-    }
-
-    // Pulisce
-    basket.restorePrices();
-    basket.clear();
-    basketPanel.clear();
-    }//GEN-LAST:event_btnPrintActionPerformed
-
-    private void AbilitaDolceActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_AbilitaDolceActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_AbilitaDolceActionPerformed
-
-    private void resocontoBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_resocontoBtnActionPerformed
-    File directoryCSV = AppPaths.base();
-    JPanel pannello = new PannelloResocontoVendite(directoryCSV);
-
-    JFrame frame = new JFrame("Resoconto Vendite");
-    frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-    frame.setContentPane(pannello);
-    frame.setSize(500, 400);
-    frame.setLocationRelativeTo(null);
-    frame.setVisible(true);        
-    }//GEN-LAST:event_resocontoBtnActionPerformed
-
-    /** Stampa un singolo Item con la quantità specificata */
+    /** Stampa un singolo Item con la quantità indicata. */
     private void printOnce(Item item, PageFormat pf, PrinterJob job, int qty) {
-        String qtyStr   = String.valueOf(qty);
-        String priceStr = String.format("%.2f", basket.getEffectivePrice(item));
-        String name     = basket.getName(item);
-        ModelloStampa ms = new ModelloStampa(priceStr, qtyStr, name, new Date());
+        printItem(job, pf, basket.getName(item), String.valueOf(qty),
+                String.format("%.2f", basket.getEffectivePrice(item)), "item");
+    }
+
+    /** Stampa una singola voce sullo scontrino (un'unica via di stampa). */
+    private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label) {
+        ModelloStampa ms = new ModelloStampa(price, qty, name, new Date());
         Book book = new Book();
         book.append(ms, pf);
         job.setPageable(book);
@@ -1032,17 +477,22 @@ public class Cassa extends javax.swing.JFrame {
             job.print();
         } catch (PrinterException e) {
             JOptionPane.showMessageDialog(this,
-                "Errore stampa item: " + e.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
+                "Errore stampa " + label + ": " + e.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // --- helper conversioni di stampa (usati anche da ModelloStampa) ---
+    protected static double fromCMToPPI(double cm) {
+        return toPPI(cm * 0.393700787);
+    }
 
-    /**
-     * @param args the command line arguments
-     */
+    protected static double toPPI(double inch) {
+        return inch * 72d;
+    }
 
-    public static void main(String args[]) {
-        /* Look & Feel moderno (FlatLaf) con angoli arrotondati */
+    // ============================ MAIN ============================
+
+    public static void main(String[] args) {
         FlatLightLaf.setup();
         UIManager.put("Button.arc", 12);
         UIManager.put("Component.arc", 12);
@@ -1051,73 +501,14 @@ public class Cassa extends javax.swing.JFrame {
         UIManager.put("ScrollBar.width", 12);
         UIManager.put("CheckBox.icon.style", "filled");
 
-        /* Create and display the form */
         java.awt.EventQueue.invokeLater(() -> {
             try {
-                Cassa cassa = new Cassa();
-                cassa.setVisible(true);
+                new Cassa().setVisible(true);
             } catch (IOException ex) {
                 Logger.getLogger(Cassa.class.getName()).log(Level.SEVERE, null, ex);
-                 JOptionPane.showMessageDialog(null, "Errore avvio cassa" + ex.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
-
+                JOptionPane.showMessageDialog(null,
+                    "Errore avvio cassa: " + ex.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
             }
         });
-        
     }
-
-  
-    private Basket basket;
-    private final ArrayList<Item> itemsPrimi;
-    private final ArrayList<Item> itemsSecondi;
-    private final ArrayList<Item> itemsBere;
-    private ArrayList<Item> itemListMenuBere;
-    private ArrayList<Item> itemListMenuPrimi;
-    private ArrayList<Item> itemListMenuSecondi;
-    private List<GroupedItem> groupedItemList;
-    private static final String GROUPED_ITEMS_JSON = "groupedItems.json";
-    private static final String GROUPED_ITEMS_LEGACY = "groupedItems.ser";
-    private final GroupedItemStore store =
-            new GroupedItemStore(AppPaths.file(GROUPED_ITEMS_JSON), AppPaths.file(GROUPED_ITEMS_LEGACY));
-    private int width;
-    private int height;
-    private Dimension bottnSize;
-    private Dimension toolbarSize;
-    private javax.swing.JCheckBox AbilitaCaffe;
-    private javax.swing.JCheckBox AbilitaDolce;
-    private javax.swing.JCheckBox AbilitaPrimi;
-    private javax.swing.JCheckBox AbilitaSecondi;
-    private javax.swing.JButton Bere;
-    private javax.swing.JPanel Blaterale;
-    private javax.swing.JPanel Contenitore;
-    private javax.swing.JButton OmaggioBtn;
-    private javax.swing.JButton Primi;
-    private javax.swing.JPanel SX;
-    private javax.swing.JButton Secondi;
-    private javax.swing.JPanel ToolBar;
-    private cassaproloco.JPanelBasket basketPanel;
-    private javax.swing.JScrollPane basketScroll;
-    private javax.swing.JPanel bere;
-    private javax.swing.JComboBox<String> boxBere;
-    private javax.swing.JComboBox<String> boxPrimi;
-    private javax.swing.JComboBox<String> boxSecondi;
-    private javax.swing.JButton btnPrint;
-    private javax.swing.JButton confermaBtn;
-    private javax.swing.JButton jButton4;
-    private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
-    private javax.swing.JLabel jLabel8;
-    private javax.swing.JPanel jPanel1;
-    private javax.swing.JPanel jPanel2;
-    private javax.swing.JLabel lblTotal;
-    private javax.swing.JTextField menuLabel1;
-    private javax.swing.JTextField prezzoLabel;
-    private javax.swing.JPanel primi;
-    private javax.swing.JButton resocontoBtn;
-    private javax.swing.JPanel secondi;
-    private javax.swing.JPanel selezione;
-    private javax.swing.JPanel setMenu;
 }
