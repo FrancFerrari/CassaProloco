@@ -1,0 +1,4 @@
+pranzo domenica primo secondo -- due biglietti
+stampa biglietti singoli
+buoni pasto 
+menu hamb. due biglietti uno bere uno mangiare
