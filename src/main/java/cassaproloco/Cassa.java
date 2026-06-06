@@ -38,6 +38,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -75,6 +77,7 @@ public class Cassa extends JFrame {
     private JPanelBasket basketPanel;
     private JScrollPane basketScroll;
     private JLabel lblTotal;
+    private JButton btnPrint;
 
     public Cassa() throws IOException {
         Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
@@ -256,7 +259,7 @@ public class Cassa extends JFrame {
         bottom.setBackground(Theme.BACKGROUND);
         bottom.setPreferredSize(new Dimension(width / 2, height / 10));
 
-        JButton btnPrint = new JButton("STAMPA");
+        btnPrint = new JButton("STAMPA");
         btnPrint.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
         btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 25));
         btnPrint.setHorizontalAlignment(SwingConstants.LEFT);
@@ -391,8 +394,107 @@ public class Cassa extends JFrame {
 
     // ============================ STAMPA ============================
 
-    /** Stampa gli scontrini del carrello e registra le vendite su CSV. */
+    /** Dati di una riga del carrello catturati sull'EDT per stamparli in background. */
+    private static final class LineToPrint {
+        final boolean group;
+        final Item item;
+        final GroupedItem gi;
+        final int qty;
+        final boolean unit;
+        LineToPrint(boolean group, Item item, GroupedItem gi, int qty, boolean unit) {
+            this.group = group;
+            this.item = item;
+            this.gi = gi;
+            this.qty = qty;
+            this.unit = unit;
+        }
+    }
+
+    /**
+     * Stampa gli scontrini del carrello e registra le vendite su CSV.
+     *
+     * <p>La lettura del carrello (componenti Swing) avviene sull'EDT; la stampa
+     * vera e propria — che blocca — viene eseguita in un {@link SwingWorker} così
+     * la UI non si congela. Il rendering dello scontrino ({@link #printItem},
+     * {@link ModelloStampa}) resta invariato.
+     */
     private void printAndRecord() {
+        // 1) Lettura del carrello sull'EDT (Swing-safe)
+        final List<LineToPrint> lines = new ArrayList<>();
+        for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {
+            JPanelBasketLine line = basketPanel.getArticles(idx);
+            boolean isGroup = line.isGrouped();
+            int qty = isGroup ? basket.getGroupedItemQty(line.getGroupedItem())
+                              : basket.getItemQty(line.getItem());
+            if (qty <= 0) continue;
+            lines.add(new LineToPrint(isGroup, line.getItem(), line.getGroupedItem(),
+                    qty, line.isUnitPrinting()));
+        }
+
+        final String todayStr = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
+        final File file = AppPaths.file("report_" + todayStr + ".csv");
+        btnPrint.setEnabled(false);
+
+        // 2) Stampa + scrittura CSV in background (la UI resta reattiva)
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                final PrinterJob job = PrinterJob.getPrinterJob();
+                final PageFormat pf = buildReceiptPageFormat();
+
+                List<String[]> toWrite = new ArrayList<>();
+                if (!file.exists()) {
+                    toWrite.add(new String[] {"Data", "Nome", "Quantità", "PrezzoUnitario"});
+                }
+                List<GroupedItem.Course> courses = Arrays.asList(
+                        GroupedItem.Course.BEVERAGE, GroupedItem.Course.FIRST, GroupedItem.Course.SECOND,
+                        GroupedItem.Course.DESSERT, GroupedItem.Course.COFFEE);
+
+                for (LineToPrint l : lines) {
+                    // "Unito" = un solo scontrino con la quantità; "Separato" = N scontrini da 1
+                    int copies = l.unit ? 1 : l.qty;
+                    final int qtyPerCopy = l.unit ? l.qty : 1;
+                    for (int copy = 0; copy < copies; copy++) {
+                        if (!l.group) {
+                            printOnce(l.item, pf, job, qtyPerCopy);
+                            toWrite.add(new String[] {
+                                    todayStr, l.item.getText(), String.valueOf(qtyPerCopy),
+                                    String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(l.item))
+                            });
+                        } else {
+                            for (GroupedItem.Course c : courses) {
+                                l.gi.getItem(c).ifPresent(item ->
+                                    printItem(job, pf, l.gi.getText(c), String.valueOf(qtyPerCopy), "",
+                                            c.name().toLowerCase()));
+                            }
+                            toWrite.add(new String[] {
+                                    todayStr, l.gi.getMenu().getText(), String.valueOf(qtyPerCopy),
+                                    String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(l.gi.getMenu()))
+                            });
+                        }
+                    }
+                }
+
+                try {
+                    new SalesRecorder().append(file, toWrite);
+                } catch (IOException e) {
+                    showError("Errore durante il salvataggio del CSV:\n" + e.getMessage());
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                basket.restorePrices();
+                basket.clear();
+                basketPanel.clear();
+                btnPrint.setEnabled(true);
+            }
+        }.execute();
+    }
+
+    /** PageFormat dello scontrino (carta 6.2x4 cm, PORTRAIT). Non cambia il rendering. */
+    private static PageFormat buildReceiptPageFormat() {
         PrinterJob job = PrinterJob.getPrinterJob();
         PageFormat pf = job.defaultPage();
         Paper paper = pf.getPaper();
@@ -401,64 +503,12 @@ public class Cassa extends JFrame {
         paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0), w, h - fromCMToPPI(1));
         pf.setOrientation(PageFormat.PORTRAIT);
         pf.setPaper(paper);
+        return pf;
+    }
 
-        LocalDate today = LocalDate.now();
-        String todayStr = today.format(DateTimeFormatter.ISO_DATE);
-        File file = AppPaths.file("report_" + todayStr + ".csv");
-
-        List<String[]> toWrite = new ArrayList<>();
-        if (!file.exists()) {
-            toWrite.add(new String[] {"Data", "Nome", "Quantità", "PrezzoUnitario"});
-        }
-
-        List<GroupedItem.Course> courses = Arrays.asList(
-                GroupedItem.Course.BEVERAGE, GroupedItem.Course.FIRST, GroupedItem.Course.SECOND,
-                GroupedItem.Course.DESSERT, GroupedItem.Course.COFFEE);
-
-        for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {
-            JPanelBasketLine line = basketPanel.getArticles(idx);
-            boolean isGroup = line.isGrouped();
-            int qty = isGroup ? basket.getGroupedItemQty(line.getGroupedItem())
-                              : basket.getItemQty(line.getItem());
-            if (qty <= 0) continue;
-
-            // "Unito" = un solo scontrino con la quantità; "Separato" = N scontrini da 1
-            int copies = line.isUnitPrinting() ? 1 : qty;
-            int qtyPerCopy = line.isUnitPrinting() ? qty : 1;
-
-            for (int copy = 0; copy < copies; copy++) {
-                if (!isGroup) {
-                    Item item = line.getItem();
-                    printOnce(item, pf, job, qtyPerCopy);
-                    toWrite.add(new String[] {
-                            todayStr, item.getText(), String.valueOf(qtyPerCopy),
-                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(item))
-                    });
-                } else {
-                    GroupedItem gi = line.getGroupedItem();
-                    for (GroupedItem.Course c : courses) {
-                        gi.getItem(c).ifPresent(item ->
-                            printItem(job, pf, gi.getText(c), String.valueOf(qtyPerCopy), "", c.name().toLowerCase()));
-                    }
-                    toWrite.add(new String[] {
-                            todayStr, gi.getMenu().getText(), String.valueOf(qtyPerCopy),
-                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))
-                    });
-                }
-            }
-        }
-
-        try {
-            new SalesRecorder().append(file, toWrite);
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this,
-                    "Errore durante il salvataggio del CSV:\n" + e.getMessage(),
-                    "Errore CSV", JOptionPane.ERROR_MESSAGE);
-        }
-
-        basket.restorePrices();
-        basket.clear();
-        basketPanel.clear();
+    private void showError(String message) {
+        SwingUtilities.invokeLater(() ->
+            JOptionPane.showMessageDialog(this, message, "ERRORE", JOptionPane.ERROR_MESSAGE));
     }
 
     /** Stampa un singolo Item con la quantità indicata. */
