@@ -20,15 +20,8 @@ import javax.swing.border.LineBorder;
 
 
 public class Cassa extends javax.swing.JFrame {
-    
-    private class BasketActionListener implements java.awt.event.ActionListener {
 
-        @Override
-        public void actionPerformed(java.awt.event.ActionEvent evt) {
-            addElementToBasket(evt);
-        }
-    }
-    protected static double fromCMToPPI(double cm) {            
+    protected static double fromCMToPPI(double cm) {
         return toPPI(cm * 0.393700787);            
     }
 
@@ -58,24 +51,13 @@ public class Cassa extends javax.swing.JFrame {
         public static final Font BUTTON_FONT = new Font("Segoe UI", Font.BOLD, 15);
     }
 
-    private JButton createMenuButton(String text, String actionCommand, ActionListener listener) {
-        JButton b = new JButton(text);
-        b.setActionCommand(actionCommand);
-        b.setUI(new ModernButtonUI(UIConstants.PRIMARY,
-                                   UIConstants.SECONDARY,
-                                   UIConstants.ACCENT,
-                                   Color.WHITE));
-        b.setPreferredSize(UIConstants.BUTTON_SIZE);
-        b.setFont(UIConstants.BUTTON_FONT);
-        b.addActionListener(listener);
-        return b;
-    }
-
-    private void readItemsFile(File file, ArrayList<Item> listItems, JPanel panel, ActionListener listener, int startIdx) {
+    /** Carica una categoria dal .cfg e crea un pulsante per ogni voce; ogni
+     *  pulsante aggiunge direttamente il proprio Item al carrello. */
+    private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
         try {
             for (Item item : MenuConfigLoader.load(file)) {
                 listItems.add(item);
-                JButton b = createMenuButton(item.getText(), String.valueOf(startIdx++), listener);
+                JButton b = createMenuButton(item.getText(), e -> basketPanel.addItem(item));
                 panel.add(b);
             }
         } catch (IOException ex) {
@@ -86,7 +68,7 @@ public class Cassa extends javax.swing.JFrame {
                 "ERRORE", JOptionPane.ERROR_MESSAGE);
         }
     }
-    
+
     private JButton createMenuButton(String text, ActionListener listener) {
         JButton b = new JButton(text);
         b.setUI(new ModernButtonUI(
@@ -203,7 +185,6 @@ public class Cassa extends javax.swing.JFrame {
         basketPanel.setBasket(basket);
         basketPanel.setTotalLabel(lblTotal);
         basketPanel.clear();
-        bere.removeAll();
 
         basketScroll.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
             @Override
@@ -230,8 +211,6 @@ public class Cassa extends javax.swing.JFrame {
         }
         });
         
-        BasketActionListener a = new BasketActionListener();
-        
         File Fbere = AppPaths.file("bere.cfg");
         File Fprimi = AppPaths.file("primi.cfg");
         File Fsecondi = AppPaths.file("secondi.cfg");
@@ -244,9 +223,9 @@ public class Cassa extends javax.swing.JFrame {
         itemListMenuSecondi = new ArrayList<>();
         groupedItemList = new ArrayList<>();
 
-        readItemsFile(Fprimi, itemsPrimi, primi, a, itemsPrimi.size());
-        readItemsFile(Fbere, itemsBere, bere, a, 0);
-        readItemsFile(Fsecondi, itemsSecondi, secondi, a, itemsSecondi.size());
+        readItemsFile(Fprimi, itemsPrimi, primi);
+        readItemsFile(Fbere, itemsBere, bere);
+        readItemsFile(Fsecondi, itemsSecondi, secondi);
         
         setBoxTextPrimi(itemsPrimi);
         setBoxTextSecondi(itemsSecondi);
@@ -333,8 +312,6 @@ public class Cassa extends javax.swing.JFrame {
         AbilitaDolce = new javax.swing.JCheckBox();
         jLabel8 = new javax.swing.JLabel();
         bere = new javax.swing.JPanel();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
         secondi = new javax.swing.JPanel();
         Blaterale = new javax.swing.JPanel();
         Secondi = new javax.swing.JButton();
@@ -573,30 +550,6 @@ public class Cassa extends javax.swing.JFrame {
         bere.setPreferredSize(new java.awt.Dimension(500, 661));
         bere.setLayout(new java.awt.GridLayout(5, 5, 4, 4));
 
-        jButton1.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(255,120,79, null)[0],Color.RGBtoHSB(255,120,79, null)[1],Color.RGBtoHSB(255,120,79, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        jButton1.setLabel("Acqua");
-        jButton1.setMaximumSize(new java.awt.Dimension(52, 22));
-        jButton1.setMinimumSize(new java.awt.Dimension(52, 22));
-        jButton1.setOpaque(true);
-        jButton1.setVerifyInputWhenFocusTarget(false);
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                addElementToBasket(evt);
-            }
-        });
-        bere.add(jButton1);
-
-        jButton2.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(255,120,79, null)[0],Color.RGBtoHSB(255,120,79, null)[1],Color.RGBtoHSB(255,120,79, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        jButton2.setLabel("Acqua");
-        jButton2.setOpaque(true);
-        jButton2.setVerifyInputWhenFocusTarget(false);
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2addElementToBasket(evt);
-            }
-        });
-        bere.add(jButton2);
-
         selezione.add(bere);
 
         secondi.setOpaque(true);
@@ -657,27 +610,17 @@ public class Cassa extends javax.swing.JFrame {
         jPanel1.setToolTipText("");
         jPanel1.setLayout(new java.awt.BorderLayout(0, 10));
 
-        ToolBar.setBackground(new java.awt.Color(58, 48, 66));
-        ToolBar.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                ToolBarMouseClicked(evt);
-            }
-        });
-
-        OmaggioBtn.setUI(new ModernButtonUI(
-            new Color(70, 130, 180),   // colore base
-            new Color(100, 160, 210),  // hover
-            new Color(40, 90, 140),    // click
-            Color.WHITE                // colore testo
-        ));
+        ToolBar.setBackground(Theme.BACKGROUND);
 
         toolbarSize = this.getSize();
         int toolbarFontSize = (int)(toolbarSize.height * 0.02);
 
-        OmaggioBtn.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
-        OmaggioBtn.setFocusPainted(false);
-        OmaggioBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        OmaggioBtn.setPreferredSize(new Dimension(120, 40));
+        // RESOCONTO - stile teal coerente con i pulsanti menu
+        resocontoBtn.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
+        resocontoBtn.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
+        resocontoBtn.setFocusPainted(false);
+        resocontoBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        resocontoBtn.setPreferredSize(new Dimension(120, 40));
         resocontoBtn.setText("RESOCONTO");
         resocontoBtn.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -686,13 +629,9 @@ public class Cassa extends javax.swing.JFrame {
         });
         ToolBar.add(resocontoBtn);
 
+        // OMAGGIO - stile blu
         OmaggioBtn.setUI(new ModernButtonUI(
-            new Color(70, 130, 180),   // colore base
-            new Color(100, 160, 210),  // hover
-            new Color(40, 90, 140),    // click
-            Color.WHITE                // colore testo
-        ));
-
+            new Color(70, 130, 180), new Color(100, 160, 210), new Color(40, 90, 140), Color.WHITE));
         OmaggioBtn.setFont(new Font("Helvetica", Font.BOLD, toolbarFontSize));
         OmaggioBtn.setFocusPainted(false);
         OmaggioBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -780,51 +719,25 @@ public class Cassa extends javax.swing.JFrame {
         setBounds(0, 0, 872, 539);
     }// </editor-fold>//GEN-END:initComponents
 
-    private void BereActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_BereActionPerformed
-            control = 0;
-            bere.setVisible(true);
-            primi.setVisible(false);
-            secondi.setVisible(false);
-            setMenu.setVisible(false);
-    }//GEN-LAST:event_BereActionPerformed
+    /** Mostra solo la categoria indicata (gli altri pannelli vengono nascosti). */
+    private void showCategory(javax.swing.JComponent toShow) {
+        bere.setVisible(toShow == bere);
+        primi.setVisible(toShow == primi);
+        secondi.setVisible(toShow == secondi);
+        setMenu.setVisible(toShow == setMenu);
+    }
 
-    private void SecondiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SecondiActionPerformed
-            control = 1;
-            bere.setVisible(false);
-            primi.setVisible(true);
-            secondi.setVisible(false); 
-            setMenu.setVisible(false);
-    }//GEN-LAST:event_SecondiActionPerformed
+    private void BereActionPerformed(java.awt.event.ActionEvent evt) {
+        showCategory(bere);
+    }
 
-    private void PrimiActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_PrimiActionPerformed
-            control = 2;
-            bere.setVisible(false);
-            primi.setVisible(false);
-            secondi.setVisible(true); 
-            setMenu.setVisible(false);
-    }//GEN-LAST:event_PrimiActionPerformed
+    private void SecondiActionPerformed(java.awt.event.ActionEvent evt) {
+        showCategory(primi);
+    }
 
-    private void addElementToBasket(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addElementToBasket
-        if (!(evt.getSource() instanceof javax.swing.JButton)) {
-            return;
-        }
-        int idx = Integer.parseInt(evt.getActionCommand());
-        if (control == 0)
-        basketPanel.addItem(itemsBere.get(idx));
-        else if (control == 1)
-            basketPanel.addItem(itemsPrimi.get(idx));
-        else if (control == 2)
-            basketPanel.addItem(itemsSecondi.get(idx));
-
-    }//GEN-LAST:event_addElementToBasket
-
-    private void jButton2addElementToBasket(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2addElementToBasket
-        // TODO add your handling code here:
-    }//GEN-LAST:event_jButton2addElementToBasket
-
-    private void ToolBarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_ToolBarMouseClicked
-
-    }//GEN-LAST:event_ToolBarMouseClicked
+    private void PrimiActionPerformed(java.awt.event.ActionEvent evt) {
+        showCategory(secondi);
+    }
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
             bere.setVisible(false);
@@ -1157,7 +1070,6 @@ public class Cassa extends javax.swing.JFrame {
     private final ArrayList<Item> itemsPrimi;
     private final ArrayList<Item> itemsSecondi;
     private final ArrayList<Item> itemsBere;
-    private int control;
     private ArrayList<Item> itemListMenuBere;
     private ArrayList<Item> itemListMenuPrimi;
     private ArrayList<Item> itemListMenuSecondi;
@@ -1170,7 +1082,6 @@ public class Cassa extends javax.swing.JFrame {
     private int height;
     private Dimension bottnSize;
     private Dimension toolbarSize;
-    // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox AbilitaCaffe;
     private javax.swing.JCheckBox AbilitaDolce;
     private javax.swing.JCheckBox AbilitaPrimi;
@@ -1183,7 +1094,7 @@ public class Cassa extends javax.swing.JFrame {
     private javax.swing.JPanel SX;
     private javax.swing.JButton Secondi;
     private javax.swing.JPanel ToolBar;
-    public static cassaproloco.JPanelBasket basketPanel;
+    private cassaproloco.JPanelBasket basketPanel;
     private javax.swing.JScrollPane basketScroll;
     private javax.swing.JPanel bere;
     private javax.swing.JComboBox<String> boxBere;
@@ -1191,8 +1102,6 @@ public class Cassa extends javax.swing.JFrame {
     private javax.swing.JComboBox<String> boxSecondi;
     private javax.swing.JButton btnPrint;
     private javax.swing.JButton confermaBtn;
-    private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton4;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
@@ -1206,10 +1115,9 @@ public class Cassa extends javax.swing.JFrame {
     private javax.swing.JLabel lblTotal;
     private javax.swing.JTextField menuLabel1;
     private javax.swing.JTextField prezzoLabel;
-    public static javax.swing.JPanel primi;
+    private javax.swing.JPanel primi;
     private javax.swing.JButton resocontoBtn;
     private javax.swing.JPanel secondi;
     private javax.swing.JPanel selezione;
     private javax.swing.JPanel setMenu;
-    // End of variables declaration//GEN-END:variables
 }
