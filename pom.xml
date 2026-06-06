@@ -80,6 +80,13 @@
             <version>1.0</version>
         </dependency>
 
+        <!-- Persistenza JSON dei menu combinati -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+
         <!-- Test: JUnit 5 (Jupiter) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

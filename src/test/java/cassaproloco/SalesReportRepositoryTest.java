@@ -52,4 +52,19 @@ class SalesReportRepositoryTest {
 
         assertEquals(Arrays.asList("2025-08-20", "2025-08-22"), dates); // ordinate
     }
+
+    @Test
+    void scritturaELetturaConNomeContenenteVirgola() throws IOException {
+        // Fix end-to-end: un nome con virgola non deve rompere le colonne
+        File csv = tmp.resolve("report_2025-08-22.csv").toFile();
+        SalesRecorder recorder = new SalesRecorder();
+        recorder.append(csv, Arrays.asList(
+                new String[]{"Data", "Nome", "Quantita", "PrezzoUnitario"},
+                new String[]{"2025-08-22", "Panino, salsiccia", "2", "4.00"}));
+
+        SalesReportRepository.Aggregate agg = new SalesReportRepository().aggregate(csv);
+
+        assertEquals(2, agg.byName.get("Panino, salsiccia")[0]);
+        assertEquals(800, agg.totalCents);
+    }
 }

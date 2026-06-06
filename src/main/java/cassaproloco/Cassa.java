@@ -1017,7 +1017,7 @@ public class Cassa extends javax.swing.JFrame {
                         todayStr,
                         item.getText(),
                         String.valueOf(qty),
-                        String.format("%.2f", basket.getEffectivePrice(item))
+                        String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(item))
                 });
             } else {
                     GroupedItem gi = line.getGroupedItem();
@@ -1039,7 +1039,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             gi.getMenu().getText(),
                             String.valueOf(qty),
-                            String.format("%.2f", basket.getEffectivePrice(gi.getMenu()))
+                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))
                     });
             }
         } else {
@@ -1051,7 +1051,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             item.getText(),
                             "1",
-                            String.format("%.2f", basket.getEffectivePrice(item))
+                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(item))
                     });
                 } else {
                         GroupedItem gi = line.getGroupedItem();
@@ -1074,7 +1074,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             gi.getMenu().getText(),                     // nome menu
                             String.valueOf(1),
-                            String.format("%.2f", basket.getEffectivePrice(gi.getMenu()))  // prezzo menu
+                            String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(gi.getMenu()))  // prezzo menu
                         });
 
                 }
@@ -1185,8 +1185,10 @@ public class Cassa extends javax.swing.JFrame {
     private ArrayList<Item> itemListMenuPrimi;
     private ArrayList<Item> itemListMenuSecondi;
     private List<GroupedItem> groupedItemList;
-    private static final String GROUPED_ITEMS_FILE = "groupedItems.ser";
-    private final GroupedItemStore store = new GroupedItemStore(new File(GROUPED_ITEMS_FILE));
+    private static final String GROUPED_ITEMS_JSON = "groupedItems.json";
+    private static final String GROUPED_ITEMS_LEGACY = "groupedItems.ser";
+    private final GroupedItemStore store =
+            new GroupedItemStore(new File(GROUPED_ITEMS_JSON), new File(GROUPED_ITEMS_LEGACY));
     private int width;
     private int height;
     private Dimension bottnSize;

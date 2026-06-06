@@ -10,8 +10,8 @@ import java.util.List;
  * Scrive le righe di vendita in append su un file CSV giornaliero
  * ({@code report_AAAA-MM-GG.csv}).
  *
- * <p>Fase 1: comportamento di scrittura identico a prima (separatore virgola).
- * L'irrobustimento (locale fisso + escaping) arriva in fase 2.
+ * <p>Le righe sono codificate con {@link Csv} (RFC 4180): nomi con virgole o
+ * virgolette vengono correttamente quotati.
  */
 public class SalesRecorder {
 
@@ -19,7 +19,7 @@ public class SalesRecorder {
     public void append(File file, List<String[]> rows) throws IOException {
         try (PrintWriter pw = new PrintWriter(new FileWriter(file, true))) {
             for (String[] row : rows) {
-                pw.println(String.join(",", row));
+                pw.println(Csv.toLine(row));
             }
         }
     }

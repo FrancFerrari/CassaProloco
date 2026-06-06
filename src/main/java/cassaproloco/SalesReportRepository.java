@@ -68,13 +68,13 @@ public class SalesReportRepository {
                     firstLine = false;
                     continue;
                 }
-                String[] fields = line.split(",");
-                if (fields.length < 4) {
+                List<String> fields = Csv.parseLine(line);
+                if (fields.size() < 4) {
                     continue;
                 }
-                String name = fields[1].trim();
-                int qty = Integer.parseInt(fields[2].trim());
-                double price = Double.parseDouble(fields[3].trim());
+                String name = fields.get(1).trim();
+                int qty = Integer.parseInt(fields.get(2).trim());
+                double price = Double.parseDouble(fields.get(3).trim());
 
                 int incomeCents = (int) (price * qty * 100);
                 totalCents += incomeCents;

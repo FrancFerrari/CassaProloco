@@ -9,6 +9,7 @@
 
 # Dati runtime generati dall'applicazione
 /*.ser
+/groupedItems.json
 /report_*.csv
 
 # File di classe compilati
