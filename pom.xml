@@ -87,6 +87,13 @@
             <version>2.10.1</version>
         </dependency>
 
+        <!-- Look & Feel moderno (flat) -->
+        <dependency>
+            <groupId>com.formdev</groupId>
+            <artifactId>flatlaf</artifactId>
+            <version>3.4.1</version>
+        </dependency>
+
         <!-- Test: JUnit 5 (Jupiter) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
