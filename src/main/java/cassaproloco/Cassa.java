@@ -7,7 +7,6 @@ import java.awt.event.MouseEvent;
 import java.awt.print.*;
 import java.io.*;
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
@@ -205,7 +204,6 @@ public class Cassa extends javax.swing.JFrame {
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         width = (int) screenSize.getWidth();
         height = (int) screenSize.getHeight();
-        Color violaScuro = new Color(58, 48, 66);
 
         //setUndecorated(true);
         setSize(screenSize);
@@ -222,8 +220,6 @@ public class Cassa extends javax.swing.JFrame {
         basketPanel.setTotalLabel(lblTotal);
         basketPanel.clear();
         bere.removeAll();
-
-        d = new Date();
 
         basketScroll.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
             @Override
@@ -250,7 +246,6 @@ public class Cassa extends javax.swing.JFrame {
         }
         });
         
-        Dimension preferredSize = new Dimension(200, 50);
         BasketActionListener a = new BasketActionListener();
         
         File Fbere = new File("bere.cfg"); 
@@ -281,9 +276,6 @@ public class Cassa extends javax.swing.JFrame {
         setBoxTextSecondi(itemsSecondi);
         setBoxTextBere(itemsBere);
         
-        jpf = new JFrame();
-        jpf.setLayout(new BorderLayout());
-        jpf.repaint(); jpf.pack();
         bere.setVisible(false);
         primi.setVisible(false);
         secondi.setVisible(false);
@@ -324,50 +316,6 @@ public class Cassa extends javax.swing.JFrame {
         }
     }
     
-    /* Stampa un singolo item standard */
-    private void printSingleItem(Item item, PageFormat pf, PrinterJob job) {
-        final Book book = new Book();
-        String qty = String.valueOf(basket.getItemQty(item));
-        String price = String.valueOf(basket.getItemTotalPrice(item));
-        String name = basket.getName(item);
-        ModelloStampa ms = new ModelloStampa(price, qty, name, new Date());
-        book.append(ms, pf);
-        job.setPageable(book);
-        try {
-            job.print();
-        } catch (PrinterException ex) {
-            JOptionPane.showMessageDialog(this,
-                "Impossibile stampare: " + ex.getMessage(),
-                "ERRORE", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void printGroupedItem(GroupedItem gi, PageFormat pf, PrinterJob job) {
-        String qtyMenu = String.valueOf(basket.getGroupedItemQty(gi));
-
-        // Runnable che esegue la stampa di una singola portata
-        BiConsumer<GroupedItem.Course, String> tryPrint = (course, label) -> {
-            gi.getItem(course).ifPresent(item ->
-                printItem(
-                    job,
-                    pf,
-                    gi.getText(course),   // testo dell'item
-                    qtyMenu,              // quantità dal menu principale
-                    null,                 // qui puoi passare un prezzo specifico se serve, altrimenti null
-                    label                 // descrittore per logica di stampa (“bevanda”, “primo”, ecc.)
-                )
-            );
-        };
-
-        // Stampo le varie portate
-        tryPrint.accept(GroupedItem.Course.BEVERAGE, "bevanda");
-        tryPrint.accept(GroupedItem.Course.FIRST,    "primo");
-        tryPrint.accept(GroupedItem.Course.SECOND,   "secondo");
-        tryPrint.accept(GroupedItem.Course.DESSERT,  "dolce");
-        tryPrint.accept(GroupedItem.Course.COFFEE,   "caffè");
-    }
-
-
     private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label) {
         Book book = new Book();
         ModelloStampa ms = new ModelloStampa(price, qty, name, new Date());
@@ -1216,39 +1164,6 @@ public class Cassa extends javax.swing.JFrame {
         }
     }
 
-    private void printOnce(GroupedItem gi, PageFormat pf, PrinterJob job, int qtyMenu) {
-        String qtyStr = String.valueOf(qtyMenu);
-
-        // Stampo solo le portate interne
-        BiConsumer<GroupedItem.Course,String> tryPrint = (course,label) -> {
-            gi.getItem(course).ifPresent(item ->
-                printItem(job, pf,
-                    gi.getText(course), // solo bevanda/primo/secondo/dolce/caffè
-                    qtyStr,
-                    "",
-                    label
-                )
-            );
-        };
-        tryPrint.accept(GroupedItem.Course.BEVERAGE, "bevanda");
-        tryPrint.accept(GroupedItem.Course.FIRST,    "primo");
-        tryPrint.accept(GroupedItem.Course.SECOND,   "secondo");
-        tryPrint.accept(GroupedItem.Course.DESSERT,  "dolce");
-        tryPrint.accept(GroupedItem.Course.COFFEE,   "caffè");
-    }
-
-    private void writeToCSV(File file, ArrayList<String[]> rows) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(file, true))) {
-            for (String[] row : rows) {
-                writer.println(String.join(",", row));
-            }
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this,
-                "Errore durante la scrittura su CSV: " + e.getMessage(),
-                "Errore", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
 
     /**
      * @param args the command line arguments
@@ -1295,17 +1210,11 @@ public class Cassa extends javax.swing.JFrame {
     }
 
   
-    private final JFrame jpf;
     private Basket basket;
     private final ArrayList<Item> itemsPrimi;
     private final ArrayList<Item> itemsSecondi;
     private final ArrayList<Item> itemsBere;
     private int control;
-    private Date d ;
-    ButtonGroup buttonGroup;
-    private CSVWriter CSV;
-    String csvFile;
-    String TotalFileString;
     private ArrayList<Item> itemListMenuBere;
     private ArrayList<Item> itemListMenuPrimi;
     private ArrayList<Item> itemListMenuSecondi;
@@ -1313,10 +1222,8 @@ public class Cassa extends javax.swing.JFrame {
     private static final String GROUPED_ITEMS_FILE = "groupedItems.ser";
     private int width;
     private int height;
-    private int checkTypeMenu;
     private Dimension bottnSize;
     private Dimension toolbarSize;
-    private Color violaScuro;
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox AbilitaCaffe;
     private javax.swing.JCheckBox AbilitaDolce;
