@@ -232,18 +232,10 @@ public class Cassa extends javax.swing.JFrame {
         
         BasketActionListener a = new BasketActionListener();
         
-        File Fbere = new File("bere.cfg"); 
-        File Fprimi = new File("primi.cfg"); 
-        File Fsecondi = new File("secondi.cfg"); 
-        try{
-            if(!Fbere.exists()) Fbere.createNewFile();
-            if(!Fprimi.exists()) Fprimi.createNewFile();
-            if(!Fsecondi.exists()) Fsecondi.createNewFile();
-        } catch (IOException e) {
-                System.out.println("An error occurred.");
-                JOptionPane.showMessageDialog(null, "Errore creazione File Bere/Primi/Secondi" + e.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
-            }
-        
+        File Fbere = AppPaths.file("bere.cfg");
+        File Fprimi = AppPaths.file("primi.cfg");
+        File Fsecondi = AppPaths.file("secondi.cfg");
+
         itemsPrimi = new ArrayList<>();
         itemsSecondi = new ArrayList<>();
         itemsBere = new ArrayList<>();
@@ -990,7 +982,7 @@ public class Cassa extends javax.swing.JFrame {
     // Prepara CSV
     LocalDate today = LocalDate.now();
     String todayStr = today.format(DateTimeFormatter.ISO_DATE); // "2025-06-28"
-    File file = new File("report_" + todayStr + ".csv");
+    File file = AppPaths.file("report_" + todayStr + ".csv");
 
 
     boolean fileExists = file.exists();
@@ -1103,7 +1095,7 @@ public class Cassa extends javax.swing.JFrame {
     }//GEN-LAST:event_AbilitaDolceActionPerformed
 
     private void resocontoBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_resocontoBtnActionPerformed
-    File directoryCSV = new File("."); // cartella corrente
+    File directoryCSV = AppPaths.base();
     JPanel pannello = new PannelloResocontoVendite(directoryCSV);
 
     JFrame frame = new JFrame("Resoconto Vendite");
@@ -1173,7 +1165,7 @@ public class Cassa extends javax.swing.JFrame {
     private static final String GROUPED_ITEMS_JSON = "groupedItems.json";
     private static final String GROUPED_ITEMS_LEGACY = "groupedItems.ser";
     private final GroupedItemStore store =
-            new GroupedItemStore(new File(GROUPED_ITEMS_JSON), new File(GROUPED_ITEMS_LEGACY));
+            new GroupedItemStore(AppPaths.file(GROUPED_ITEMS_JSON), AppPaths.file(GROUPED_ITEMS_LEGACY));
     private int width;
     private int height;
     private Dimension bottnSize;
