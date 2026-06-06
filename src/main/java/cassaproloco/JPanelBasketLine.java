@@ -44,7 +44,7 @@ public class JPanelBasketLine extends javax.swing.JPanel {
         this.gi        = gi;
         this.parent    = parent;
         setOpaque(false);
-        lblText.setText(i.textToPrint);
+        lblText.setText(i.getTextToPrint());
         lblText.setFont(new Font("Helvetica", Font.BOLD, fontSize));
         updateText();
     }

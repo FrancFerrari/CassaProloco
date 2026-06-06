@@ -5,13 +5,19 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Modello dati che tiene traccia di Item singoli e GroupedItem.
+ * Modello dati del carrello: tiene le quantità di {@link Item} singoli e di
+ * {@link GroupedItem} (menu), oltre agli eventuali override di prezzo usati
+ * dalla funzione "Omaggio".
+ *
+ * <p>L'omaggio NON muta gli Item (che sono immutabili e usati come chiavi di
+ * mappa): registra invece un prezzo effettivo alternativo in
+ * {@link #priceOverrides} e lo applica nei calcoli.
  */
 public class Basket implements Iterable<Map.Entry<Item, Integer>> {
     private JPanelBasket parent;
     private final Map<Item, Integer> items        = new HashMap<>();
     private final Map<GroupedItem, Integer> groups = new HashMap<>();
-    private final Map<Item, Float> originalPrices  = new HashMap<>();
+    private final Map<Item, Float> priceOverrides  = new HashMap<>();
 
     public void setParent(JPanelBasket parent) {
         this.parent = parent;
@@ -20,14 +26,19 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
     public void clear() {
         items.clear();
         groups.clear();
-        originalPrices.clear();
+        priceOverrides.clear();
         notifyUI();
+    }
+
+    /** Prezzo effettivo dell'item, tenendo conto di eventuali omaggi. */
+    public float getEffectivePrice(Item i) {
+        Float override = priceOverrides.get(i);
+        return override != null ? override : i.getprice();
     }
 
     // --- Item methods ---
 
     public int addItem(Item i) {
-        originalPrices.putIfAbsent(i, i.getprice());
         items.merge(i, 1, Integer::sum);
         notifyUI();
         return items.get(i);
@@ -43,38 +54,24 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return items.getOrDefault(i, 0);
     }
 
-    private void restorePrice(Item item) {
-    if (originalPrices.containsKey(item)) {
-        item.setPrice(originalPrices.get(item));
-        originalPrices.remove(item);
-    }
-}
-
     public void removeItem(Item i) {
-        restorePrice(i);     // <--- RIPRISTINA prezzo
         items.remove(i);
+        priceOverrides.remove(i);
         notifyUI();
     }
 
     public void removeGroupedItem(GroupedItem gi) {
-        restorePrice(gi.getMenu());   // <--- RIPRISTINA prezzo menu
+        priceOverrides.remove(gi.getMenu());
         groups.remove(gi);
         notifyUI();
     }
-    
-    /*
-    public void removeItem(Item i) {
-        items.remove(i);
-        originalPrices.remove(i);
-        notifyUI();
-    }
-    */
+
     public int getItemQty(Item i) {
         return items.getOrDefault(i, 0);
     }
 
     public float getItemTotalPrice(Item i) {
-        return i.getprice() * getItemQty(i);
+        return getEffectivePrice(i) * getItemQty(i);
     }
 
     // --- GroupedItem methods ---
@@ -95,65 +92,50 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return groups.getOrDefault(gi, 0);
     }
 
-    /*
-    public void removeGroupedItem(GroupedItem gi) {
-        groups.remove(gi);
-        notifyUI();
-    }
-    */
     public int getGroupedItemQty(GroupedItem gi) {
         return groups.getOrDefault(gi, 0);
     }
 
     public float getGroupedItemTotalPrice(GroupedItem gi) {
-        return gi.getMenu().getprice() * getGroupedItemQty(gi);
+        return getEffectivePrice(gi.getMenu()) * getGroupedItemQty(gi);
     }
 
     // --- Common ---
 
-    /** Restituisce il totale sommando tutti gli Item e GroupedItem (menu). */
+    /** Totale del carrello, prezzi effettivi (omaggi inclusi). */
     public float getTotalPrice() {
         float sum = 0f;
         for (Map.Entry<Item, Integer> e : items.entrySet()) {
-            sum += e.getKey().getprice() * e.getValue();
+            sum += getEffectivePrice(e.getKey()) * e.getValue();
         }
         for (Map.Entry<GroupedItem, Integer> e : groups.entrySet()) {
-            sum += e.getKey().getMenu().getprice() * e.getValue();
+            sum += getEffectivePrice(e.getKey().getMenu()) * e.getValue();
         }
         return sum;
     }
 
+    /** Omaggio: azzera il prezzo effettivo di tutto ciò che è nel carrello. */
     public void setPricesToZero() {
-        // 1) Azzera i singoli articoli
         for (Item item : items.keySet()) {
-            originalPrices.putIfAbsent(item, item.getprice());
-            item.setPrice(0f);
+            priceOverrides.put(item, 0f);
         }
-        // 2) Azzera i menu dei GroupedItem
         for (GroupedItem gi : groups.keySet()) {
-            Item menu = gi.getMenu();
-            originalPrices.putIfAbsent(menu, menu.getprice());
-            menu.setPrice(0f);
+            priceOverrides.put(gi.getMenu(), 0f);
         }
-        // 3) Notifica subito la UI
         notifyUI();
     }
 
-    /** Ripristina prezzi originali e notifica la UI. */
+    /** Ripristina i prezzi originali rimuovendo tutti gli override. */
     public void restorePrices() {
-        for (Map.Entry<Item, Float> e : originalPrices.entrySet()) {
-            e.getKey().setPrice(e.getValue());
-        }
-        originalPrices.clear();
+        priceOverrides.clear();
         notifyUI();
     }
 
-    
     public String getName(Item i) {
         return i.getText();
     }
-    
-    /** Notifica il JPanelBasket di aggiornare le righe e il totale */
+
+    /** Notifica il JPanelBasket di aggiornare le righe e il totale. */
     private void notifyUI() {
         if (parent != null) {
             parent.updateAll();
@@ -165,7 +147,7 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return items.entrySet().iterator();
     }
 
-    /** Numero totale di righe (item + group) */
+    /** Numero totale di righe (item + group). */
     public int size() {
         return items.size() + groups.size();
     }

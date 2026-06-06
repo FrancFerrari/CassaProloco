@@ -7,6 +7,7 @@ import java.awt.event.MouseEvent;
 import java.awt.print.*;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.*;
@@ -70,13 +71,8 @@ public class Cassa extends javax.swing.JFrame {
     }
 
     private void readItemsFile(File file, ArrayList<Item> listItems, JPanel panel, ActionListener listener, int startIdx) {
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            // salta l’intestazione
-            String line = br.readLine();
-            while ((line = br.readLine()) != null) {
-                String[] str = line.split(";");
-                if (str.length != 3) continue;
-                Item item = new Item(0, Float.parseFloat(str[2]), str[0], str[1],1);
+        try {
+            for (Item item : MenuConfigLoader.load(file)) {
                 listItems.add(item);
                 JButton b = createMenuButton(item.getText(), String.valueOf(startIdx++), listener);
                 panel.add(b);
@@ -162,9 +158,8 @@ public class Cassa extends javax.swing.JFrame {
 
         // Rimuovi dalla lista e aggiorna file
         groupedItemList.remove(gi);
-        File file = new File(GROUPED_ITEMS_FILE);
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
-            out.writeObject(groupedItemList);
+        try {
+            store.save(groupedItemList);
             System.out.println("GroupedItems aggiornati dopo rimozione.");
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -175,25 +170,13 @@ public class Cassa extends javax.swing.JFrame {
     }
 
     public void loadGroupedItems() {
-        String fileName = "groupedItems.ser";
-
-        try (FileInputStream fileIn = new FileInputStream(fileName);
-             ObjectInputStream in = new ObjectInputStream(fileIn)) {
-
-            ArrayList<GroupedItem> loadedGroupedItemList = (ArrayList<GroupedItem>) in.readObject();
-
-            for (GroupedItem gi : loadedGroupedItemList) {
-                importMenu(gi);
-            }
-
-            System.out.println("GroupedItem loaded successfully.");
-
-        } catch (IOException | ClassNotFoundException ex) {
-            System.out.println("GroupedItem not loaded: " + ex.getMessage());
+        groupedItemList = store.load();
+        for (GroupedItem gi : groupedItemList) {
+            importMenu(gi);
         }
     }
 
-    public ArrayList<GroupedItem> getGroupedItemList() {
+    public List<GroupedItem> getGroupedItemList() {
         return groupedItemList;
     }
     /**
@@ -917,31 +900,16 @@ public class Cassa extends javax.swing.JFrame {
         return;
     }
 
-    // 3) Carica lista esistente da file (se presente)
-    ArrayList<GroupedItem> allItems = new ArrayList<>();
-    File file = new File(GROUPED_ITEMS_FILE);
-    if (file.exists()) {
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
-            Object obj = in.readObject();
-            if (obj instanceof ArrayList) {
-                allItems = (ArrayList<GroupedItem>) obj;
-            }
-        } catch (IOException | ClassNotFoundException ex) {
-            ex.printStackTrace();
-        }
-    }
-
-    // 4) Aggiungi il nuovo e salva tutto
-    allItems.add(newItem);
-    try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
-        out.writeObject(allItems);
+    // 3) Aggiungi il nuovo menu alla lista e salva
+    groupedItemList.add(newItem);
+    try {
+        store.save(groupedItemList);
         System.out.println("GroupedItems salvati correttamente.");
     } catch (IOException ex) {
         ex.printStackTrace();
     }
 
-    // 5) Aggiorna UI
-    groupedItemList = allItems;
+    // 4) Aggiorna UI
     importMenu(newItem);
     JOptionPane.showMessageDialog(this,
         "MENU' CREATO", "CONFERMA", JOptionPane.INFORMATION_MESSAGE);
@@ -1049,7 +1017,7 @@ public class Cassa extends javax.swing.JFrame {
                         todayStr,
                         item.getText(),
                         String.valueOf(qty),
-                        String.format("%.2f", item.getprice())
+                        String.format("%.2f", basket.getEffectivePrice(item))
                 });
             } else {
                     GroupedItem gi = line.getGroupedItem();
@@ -1071,7 +1039,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             gi.getMenu().getText(),
                             String.valueOf(qty),
-                            String.format("%.2f", gi.getMenu().getprice())
+                            String.format("%.2f", basket.getEffectivePrice(gi.getMenu()))
                     });
             }
         } else {
@@ -1083,7 +1051,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             item.getText(),
                             "1",
-                            String.format("%.2f", item.getprice())
+                            String.format("%.2f", basket.getEffectivePrice(item))
                     });
                 } else {
                         GroupedItem gi = line.getGroupedItem();
@@ -1106,7 +1074,7 @@ public class Cassa extends javax.swing.JFrame {
                             todayStr,
                             gi.getMenu().getText(),                     // nome menu
                             String.valueOf(1),
-                            String.format("%.2f", gi.getMenu().getprice())  // prezzo menu
+                            String.format("%.2f", basket.getEffectivePrice(gi.getMenu()))  // prezzo menu
                         });
 
                 }
@@ -1115,10 +1083,8 @@ public class Cassa extends javax.swing.JFrame {
     }
 
     // Salva su CSV in append mode
-    try (PrintWriter pw = new PrintWriter(new FileWriter(file, true))) {
-        for (String[] row : toWrite) {
-            pw.println(String.join(",", row));
-        }
+    try {
+        new SalesRecorder().append(file, toWrite);
     } catch (IOException e) {
         JOptionPane.showMessageDialog(this,
                 "Errore durante il salvataggio del CSV:\n" + e.getMessage(),
@@ -1150,7 +1116,7 @@ public class Cassa extends javax.swing.JFrame {
     /** Stampa un singolo Item con la quantità specificata */
     private void printOnce(Item item, PageFormat pf, PrinterJob job, int qty) {
         String qtyStr   = String.valueOf(qty);
-        String priceStr = String.format("%.2f", item.getprice());
+        String priceStr = String.format("%.2f", basket.getEffectivePrice(item));
         String name     = basket.getName(item);
         ModelloStampa ms = new ModelloStampa(priceStr, qtyStr, name, new Date());
         Book book = new Book();
@@ -1218,8 +1184,9 @@ public class Cassa extends javax.swing.JFrame {
     private ArrayList<Item> itemListMenuBere;
     private ArrayList<Item> itemListMenuPrimi;
     private ArrayList<Item> itemListMenuSecondi;
-    private ArrayList<GroupedItem> groupedItemList;
+    private List<GroupedItem> groupedItemList;
     private static final String GROUPED_ITEMS_FILE = "groupedItems.ser";
+    private final GroupedItemStore store = new GroupedItemStore(new File(GROUPED_ITEMS_FILE));
     private int width;
     private int height;
     private Dimension bottnSize;

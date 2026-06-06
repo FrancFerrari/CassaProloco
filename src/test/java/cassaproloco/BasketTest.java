@@ -67,4 +67,43 @@ class BasketTest {
         assertEquals(0, b.getItemQty(coca));
         assertEquals(0, b.size());
     }
+
+    @Test
+    void omaggioAzzeraIPrezziSenzaMutareGliItem() {
+        Basket b = new Basket();
+        Item coca = item("Coca Cola", 2.5f);
+        b.addItem(coca);
+        b.addItem(coca);
+
+        b.setPricesToZero();
+        assertEquals(0f, b.getTotalPrice());
+        assertEquals(0f, b.getItemTotalPrice(coca));
+        // L'Item resta immutato: il suo prezzo "di listino" è ancora 2.5
+        assertEquals(2.5f, coca.getprice(), 0.0001f);
+        assertEquals(0f, b.getEffectivePrice(coca));
+    }
+
+    @Test
+    void ripristinoPrezziDopoOmaggio() {
+        Basket b = new Basket();
+        Item coca = item("Coca Cola", 2.5f);
+        b.addItem(coca);
+
+        b.setPricesToZero();
+        assertEquals(0f, b.getTotalPrice());
+
+        b.restorePrices();
+        assertEquals(2.5f, b.getTotalPrice(), 0.0001f);
+        assertEquals(2.5f, b.getEffectivePrice(coca), 0.0001f);
+    }
+
+    @Test
+    void itemUgualiSiFondonoComeChiaveDiMappa() {
+        // equals/hashCode coerenti: due Item con stessi testo+prezzo sono la stessa voce
+        Basket b = new Basket();
+        b.addItem(item("Coca Cola", 2.5f));
+        b.addItem(item("Coca Cola", 2.5f));
+        assertEquals(1, b.size());
+        assertEquals(2, b.getItemQty(item("Coca Cola", 2.5f)));
+    }
 }

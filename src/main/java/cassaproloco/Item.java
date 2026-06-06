@@ -1,61 +1,76 @@
 package cassaproloco;
 
 import java.io.Serializable;
+import java.util.Objects;
 
-class Item implements Serializable{
-    public int ID = 0;
-    public float price = 0;
-    public String text = "";
-    public String textToPrint = "";
-    public int qty = 0;
-    
-    public Item (int ID, float price, String text, String textToPrint, int qty){
-        this.ID=ID;
-        this.price=price;
-        this.text=text;
-        this.textToPrint=textToPrint;
-        this.qty=qty;
+/**
+ * Voce di menu immutabile: un articolo singolo (es. "Coca Cola") oppure il
+ * menu principale di un {@link GroupedItem}.
+ *
+ * <p>È immutabile e viene usata come chiave in {@link java.util.HashMap}
+ * (vedi {@link Basket}); per questo {@code equals} e {@code hashCode} devono
+ * restare coerenti e i campi non devono cambiare dopo la costruzione.
+ * L'eventuale azzeramento prezzo (omaggio) è gestito da {@link Basket} tramite
+ * override, senza mutare l'Item.
+ */
+public final class Item implements Serializable {
+    private static final long serialVersionUID = 1L;
+
+    private final int id;
+    private final float price;
+    private final String text;
+    private final String textToPrint;
+    private final int qty;
+
+    public Item(int id, float price, String text, String textToPrint, int qty) {
+        this.id = id;
+        this.price = price;
+        this.text = text == null ? "" : text;
+        this.textToPrint = textToPrint == null ? "" : textToPrint;
+        this.qty = qty;
     }
-    
-    public Item (){}
-    
-    @Override
-    public String toString(){
-        String s;
-        s = text + " - " + textToPrint + " - " + price + " €";
-        return s;
+
+    public Item() {
+        this(0, 0f, "", "", 0);
     }
-    
-    @Override
-    public boolean equals(Object o) {
-        if(!(o instanceof Item)) return false;
-        
-        Item i = (Item) o;
-        return i.price == price &&
-               i.text.equals(text) &&
-               i.textToPrint.equals(textToPrint);
+
+    public int getID() {
+        return id;
     }
-    
-    @Override
-    public int hashCode(){
-        return text.hashCode();
-    }
-    
-    public String getText(){
-        return text;
-    }
-    
-    public int getQty(){
-        return qty;
-    }
-    public float getprice(){
+
+    public float getprice() {
         return price;
     }
-    public int getID(){
-        return ID;
+
+    public String getText() {
+        return text;
     }
-    public void setPrice(float newprice){
-        this.price = newprice;
-        System.out.println("settato ");
+
+    public String getTextToPrint() {
+        return textToPrint;
+    }
+
+    public int getQty() {
+        return qty;
+    }
+
+    @Override
+    public String toString() {
+        return text + " - " + textToPrint + " - " + price + " €";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Item)) return false;
+        Item i = (Item) o;
+        return Float.compare(i.price, price) == 0
+            && text.equals(i.text)
+            && textToPrint.equals(i.textToPrint);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(text, textToPrint, price);
     }
 }
