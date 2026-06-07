@@ -1,5 +1,7 @@
 # CassaProloco
 
+[![CI](https://github.com/FrancFerrari/CassaProloco/actions/workflows/ci.yml/badge.svg)](https://github.com/FrancFerrari/CassaProloco/actions/workflows/ci.yml)
+
 Applicazione di cassa (point-of-sale) per le sagre della Pro Loco, scritta in **Java Swing**
 con look moderno (**FlatLaf**). Gestisce menu (primi, secondi, bevande), carrello, menu
 combinati, stampa scontrini su stampante etichette e report vendite giornalieri in CSV.
@@ -40,9 +42,8 @@ mvn test
 
 I test JUnit 5 sono in `src/test/java/cassaproloco/`.
 
-**CI:** è pronto un workflow GitHub Actions in [`docs/ci-workflow.yml`](docs/ci-workflow.yml)
-(build + test a ogni push/PR). Per attivarlo, copiarlo in `.github/workflows/ci.yml`
-(dal web GitHub, oppure da CLI dopo `gh auth refresh -s workflow`).
+**CI:** ad ogni push su `master` e ad ogni PR, GitHub Actions esegue build e test
+(workflow in [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Architettura
 

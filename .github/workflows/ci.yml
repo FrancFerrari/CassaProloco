@@ -1,11 +1,3 @@
-# CI GitHub Actions per CassaProloco.
-#
-# Per attivarla, copiare questo file in `.github/workflows/ci.yml`.
-# Nota: pushare file dentro `.github/workflows/` richiede che il token Git abbia
-# lo scope `workflow`. Due modi:
-#   - dal web: GitHub > Add file > crea `.github/workflows/ci.yml` e incolla;
-#   - da CLI:  `gh auth refresh -s workflow` poi copia il file e fai push.
-
 name: CI
 
 on:
