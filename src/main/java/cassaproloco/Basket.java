@@ -153,4 +153,17 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
     public int size() {
         return items.size() + groups.size();
     }
+
+    /** Numero totale di pezzi nel carrello (somma di tutte le quantità). */
+    public int totalQuantity() {
+        int n = 0;
+        for (int q : items.values()) {
+            n += q;
+        }
+        for (int q : groups.values()) {
+            n += q;
+        }
+        return n;
+    }
 }
+

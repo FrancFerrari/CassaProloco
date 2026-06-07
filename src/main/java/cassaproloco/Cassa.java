@@ -5,6 +5,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
@@ -74,6 +75,7 @@ public class Cassa extends JFrame {
     private JPanelBasket basketPanel;
     private JScrollPane basketScroll;
     private JLabel lblTotal;
+    private JLabel lblCount;
     private JButton btnPrint;
 
     public Cassa() throws IOException {
@@ -249,27 +251,71 @@ public class Cassa extends JFrame {
     }
 
     private JPanel buildBottomBar() {
-        JPanel bottom = new JPanel(new GridLayout(1, 0));
+        JPanel bottom = new JPanel(new BorderLayout(0, 6));
         bottom.setBackground(Theme.BACKGROUND);
-        bottom.setPreferredSize(new Dimension(width / 2, height / 10));
+        bottom.setPreferredSize(new Dimension(width / 2, (int) (height / 7.0)));
 
+        // Riga azioni: annulla ultimo, svuota (a sinistra) + contatore (a destra)
+        JPanel actions = new JPanel(new BorderLayout());
+        actions.setOpaque(false);
+        JPanel leftBtns = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        leftBtns.setOpaque(false);
+        leftBtns.add(smallButton("Annulla ultimo", () -> basketPanel.removeLastUnit()));
+        leftBtns.add(smallButton("Svuota", this::confirmClear));
+        lblCount = new JLabel("0 articoli");
+        lblCount.setForeground(Theme.TEXT_LIGHT);
+        lblCount.setBorder(new EmptyBorder(0, 0, 0, 12));
+        actions.add(leftBtns, BorderLayout.WEST);
+        actions.add(lblCount, BorderLayout.EAST);
+        bottom.add(actions, BorderLayout.NORTH);
+
+        // Riga stampa + totale
+        JPanel printRow = new JPanel(new GridLayout(1, 0));
+        printRow.setOpaque(false);
         btnPrint = new JButton("STAMPA");
         btnPrint.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
         btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 25));
         btnPrint.setHorizontalAlignment(SwingConstants.LEFT);
         btnPrint.addActionListener(e -> printAndRecord());
-        bottom.add(btnPrint);
+        printRow.add(btnPrint);
 
         lblTotal = new JLabel("0.00€");
         lblTotal.setHorizontalAlignment(SwingConstants.RIGHT);
-        bottom.add(lblTotal);
+        printRow.add(lblTotal);
+        bottom.add(printRow, BorderLayout.CENTER);
         return bottom;
+    }
+
+    private JButton smallButton(String text, Runnable action) {
+        JButton b = new JButton(text);
+        b.setUI(new ModernButtonUI(Theme.ACCENT, Theme.PRIMARY, new Color(50, 80, 100), Color.WHITE));
+        b.setFont(new Font("Helvetica", Font.BOLD, Math.max(12, (int) (height * 0.014))));
+        b.setFocusPainted(false);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setPreferredSize(new Dimension(150, 34));
+        b.addActionListener(e -> action.run());
+        return b;
+    }
+
+    /** Svuota il carrello previa conferma (azione distruttiva). */
+    private void confirmClear() {
+        if (basketPanel.getArticlesCount() == 0) {
+            return;
+        }
+        int r = JOptionPane.showConfirmDialog(this, "Svuotare il carrello?",
+                "Conferma", JOptionPane.YES_NO_OPTION);
+        if (r == JOptionPane.YES_OPTION) {
+            basket.restorePrices();
+            basket.clear();
+            basketPanel.clear();
+        }
     }
 
     private void wireBasket() {
         basket.setParent(basketPanel);
         basketPanel.setBasket(basket);
         basketPanel.setTotalLabel(lblTotal);
+        basketPanel.setCountLabel(lblCount);
         basketPanel.clear();
     }
 
@@ -398,6 +444,18 @@ public class Cassa extends JFrame {
      * {@link #printItem}, {@link ModelloStampa}) resta invariato.
      */
     private void printAndRecord() {
+        if (basketPanel.getArticlesCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Il carrello è vuoto.", "Stampa",
+                    JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Stampare gli scontrini?  Totale: " + Money.format(basket.getTotalPrice()) + "€",
+                "Conferma stampa", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
         // 1) Lettura del carrello sull'EDT e calcolo del piano (Swing-safe)
         List<SalePlanner.Line> lines = new ArrayList<>();
         for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {

@@ -28,6 +28,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
     private final List<JPanelBasketLine> articles = new ArrayList<>();
     private Basket basket;
     private JLabel lblTotal;
+    private JLabel lblCount;
 
     public JPanelBasket() {
         setOpaque(false);
@@ -46,6 +47,17 @@ public class JPanelBasket extends JPanel implements Scrollable {
 
     public void setTotalLabel(JLabel lbl) {
         this.lblTotal = lbl;
+    }
+
+    public void setCountLabel(JLabel lbl) {
+        this.lblCount = lbl;
+    }
+
+    /** Toglie un pezzo dall'ultima riga aggiunta ("annulla ultimo"). */
+    public void removeLastUnit() {
+        if (!articles.isEmpty()) {
+            articles.get(articles.size() - 1).decrement();
+        }
     }
 
     public int getArticlesCount() {
@@ -110,14 +122,21 @@ public class JPanelBasket extends JPanel implements Scrollable {
         updateTotalText();
     }
 
-    /** Mostra il totale nel label impostato. */
+    /** Mostra il totale (e il contatore articoli) nei label impostati. */
     public void updateTotalText() {
-        if (lblTotal != null && basket != null) {
+        if (basket == null) {
+            return;
+        }
+        if (lblTotal != null) {
             lblTotal.setText(Money.format(basket.getTotalPrice()) + "€");
             lblTotal.setFont(Theme.TOTAL_FONT);
             lblTotal.setForeground(Theme.TEXT_ON_DARK);
             lblTotal.setOpaque(true);
             lblTotal.setBackground(Theme.BACKGROUND);
+        }
+        if (lblCount != null) {
+            int n = basket.totalQuantity();
+            lblCount.setText(n == 1 ? "1 articolo" : n + " articoli");
         }
     }
 

@@ -167,6 +167,11 @@ public class JPanelBasketLine extends JPanel {
         parent.updateTotalText();
     }
 
+    /** Toglie un pezzo (come premere "−"); usato da "annulla ultimo". */
+    public void decrement() {
+        subtractAction();
+    }
+
     private void addAction() {
         if (isGrouped) parent.getBasket().addGroupedItem(gi);
         else           parent.getBasket().addItem(i);
