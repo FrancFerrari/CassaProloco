@@ -59,6 +59,6 @@ Per ogni riga del carrello (`JPanelBasketLine`):
 **stesso** metodo `print(Graphics, …)` usato dalla stampante — su file PNG, per
 verificare l'aspetto dello scontrino:
 ```
-java -cp "target/classes;lib/AbsoluteLayout.jar" cassaproloco.ReceiptPreview
+java -cp "target/classes;dist/lib/*" cassaproloco.ReceiptPreview
 ```
 Le immagini vengono salvate nella cartella temporanea (percorso stampato a video).

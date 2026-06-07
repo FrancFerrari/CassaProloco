@@ -16,15 +16,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <!-- Repository Maven locale incluso nel progetto (contiene AbsoluteLayout) -->
-    <repositories>
-        <repository>
-            <id>project-local</id>
-            <name>Repository locale del progetto</name>
-            <url>file:///${project.basedir}/repo</url>
-        </repository>
-    </repositories>
-
     <build>
         <!-- Struttura Maven standard: src/main/java e src/test/java -->
         <finalName>CassaProloco</finalName>
@@ -74,12 +65,6 @@
     </build>
 
     <dependencies>
-        <dependency>
-            <groupId>org.netbeans</groupId>
-            <artifactId>AbsoluteLayout</artifactId>
-            <version>1.0</version>
-        </dependency>
-
         <!-- Persistenza JSON dei menu combinati -->
         <dependency>
             <groupId>com.google.code.gson</groupId>

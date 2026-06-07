@@ -19,7 +19,7 @@ import javax.imageio.ImageIO;
  *
  * <p>Non altera in alcun modo la funzione di stampa: la usa soltanto.
  *
- * <pre>java -cp "target/classes;lib/AbsoluteLayout.jar" cassaproloco.ReceiptPreview</pre>
+ * <pre>java -cp "target/classes;dist/lib/*" cassaproloco.ReceiptPreview</pre>
  */
 public final class ReceiptPreview {
 
