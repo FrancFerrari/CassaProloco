@@ -13,7 +13,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.print.Book;
 import java.awt.print.PageFormat;
-import java.awt.print.Paper;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.io.File;
@@ -420,7 +419,7 @@ public class Cassa extends JFrame {
             @Override
             protected Void doInBackground() {
                 PrinterJob job = PrinterJob.getPrinterJob();
-                PageFormat pf = buildReceiptPageFormat();
+                PageFormat pf = ReceiptGeometry.pageFormat();
                 for (SalePlanner.Receipt r : plan.receipts) {
                     if (r.isSingle()) {
                         printOnce(r.item, pf, job, r.qty);
@@ -446,19 +445,6 @@ public class Cassa extends JFrame {
         }.execute();
     }
 
-    /** PageFormat dello scontrino (carta 6.2x4 cm, PORTRAIT). Non cambia il rendering. */
-    private static PageFormat buildReceiptPageFormat() {
-        PrinterJob job = PrinterJob.getPrinterJob();
-        PageFormat pf = job.defaultPage();
-        Paper paper = pf.getPaper();
-        double w = fromCMToPPI(6.2), h = fromCMToPPI(4);
-        paper.setSize(w, h);
-        paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0), w, h - fromCMToPPI(1));
-        pf.setOrientation(PageFormat.PORTRAIT);
-        pf.setPaper(paper);
-        return pf;
-    }
-
     private void showError(String message) {
         SwingUtilities.invokeLater(() ->
             JOptionPane.showMessageDialog(this, message, "ERRORE", JOptionPane.ERROR_MESSAGE));
@@ -479,19 +465,11 @@ public class Cassa extends JFrame {
         try {
             job.print();
         } catch (PrinterException e) {
-            JOptionPane.showMessageDialog(this,
-                "Errore stampa " + label + ": " + e.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
+            // la stampa gira in background: mostra l'errore sull'EDT
+            showError("Errore stampa " + label + ": " + e.getMessage());
         }
     }
 
-    // --- helper conversioni di stampa (usati anche da ModelloStampa) ---
-    protected static double fromCMToPPI(double cm) {
-        return toPPI(cm * 0.393700787);
-    }
-
-    protected static double toPPI(double inch) {
-        return inch * 72d;
-    }
 
     // ============================ MAIN ============================
 

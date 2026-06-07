@@ -4,8 +4,6 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.awt.print.PageFormat;
-import java.awt.print.Paper;
-import java.awt.print.PrinterJob;
 import java.io.File;
 import java.util.Date;
 
@@ -29,7 +27,7 @@ public final class ReceiptPreview {
     }
 
     public static void main(String[] args) throws Exception {
-        PageFormat pf = buildPageFormat();
+        PageFormat pf = ReceiptGeometry.pageFormat();
         File outDir = new File(System.getProperty("java.io.tmpdir"));
 
         render(new File(outDir, "scontrino_singolo.png"),
@@ -40,19 +38,6 @@ public final class ReceiptPreview {
                 new ModelloStampa("7.00", "1", "Vino litro", new Date()), pf);
 
         System.out.println("Anteprime salvate in: " + outDir.getAbsolutePath());
-    }
-
-    /** Stesso PageFormat costruito da Cassa.printAndRecord(). */
-    static PageFormat buildPageFormat() {
-        PrinterJob job = PrinterJob.getPrinterJob();
-        PageFormat pf = job.defaultPage();
-        Paper paper = pf.getPaper();
-        double w = Cassa.fromCMToPPI(6.2), h = Cassa.fromCMToPPI(4);
-        paper.setSize(w, h);
-        paper.setImageableArea(Cassa.fromCMToPPI(0.25), Cassa.fromCMToPPI(0), w, h - Cassa.fromCMToPPI(1));
-        pf.setOrientation(PageFormat.PORTRAIT);
-        pf.setPaper(paper);
-        return pf;
     }
 
     private static void render(File out, ModelloStampa receipt, PageFormat pf) throws Exception {

@@ -25,8 +25,10 @@ git checkout print-baseline-v1 -- src/main/java/cassaproloco/ModelloStampa.java 
   - `"Data: gg/MM/aaaa"` a (15,55)
   - `"Ora: HH:mm:ss"` sotto la data
   - `print(Graphics, PageFormat, page)` → `panel.print(g2d); printAll(g2d);`
+  - (non crea più un `JFrame` per scontrino: era inutile)
 - **`Paint`**: il `JPanel` su cui vengono disegnate le etichette.
-- **Conversioni**: `Cassa.fromCMToPPI(cm)` e `Cassa.toPPI(inch)` (1 inch = 72 pt).
+- **`ReceiptGeometry`**: conversioni `fromCMToPPI(cm)`/`toPPI(inch)` (1 inch = 72 pt)
+  e `pageFormat()` (carta 6.2×4 cm, PORTRAIT).
 
 ## Formato pagina (PageFormat)
 
