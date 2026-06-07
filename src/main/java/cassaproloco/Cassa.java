@@ -67,9 +67,10 @@ public class Cassa extends JFrame {
     private final int height;
 
     // --- Componenti UI ---
-    private JPanel primi;       // griglia PRIMI (ospita anche i menu combinati)
+    private JPanel primi;       // griglia PRIMI
     private JPanel bere;        // griglia BERE
     private JPanel secondi;     // griglia SECONDI
+    private JPanel menuCombinati; // griglia dei menu combinati salvati
     private JPanel selezione;   // stack (OverlayLayout) delle categorie
     private MenuBuilderPanel menuBuilder;
     private JPanelBasket basketPanel;
@@ -108,12 +109,14 @@ public class Cassa extends JFrame {
         primi = categoryGrid(new GridLayout(4, 5, 4, 4), new Dimension(700, 661));
         secondi = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(700, 661));
         bere = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(500, 661));
+        menuCombinati = categoryGrid(new GridLayout(4, 5, 4, 4), new Dimension(700, 661));
         menuBuilder = new MenuBuilderPanel();
         menuBuilder.setListener(this::onMenuCreated);
 
         selezione.add(primi, "primi");
         selezione.add(bere, "bere");
         selezione.add(secondi, "secondi");
+        selezione.add(menuCombinati, "menucomb");
         selezione.add(menuBuilder, "menu");
 
         JPanel sx = new JPanel(new BorderLayout());
@@ -140,6 +143,7 @@ public class Cassa extends JFrame {
         nav.add(navButton("PRIMI", fontSize, () -> showCategory(primi)));
         nav.add(navButton("BERE", fontSize, () -> showCategory(bere)));
         nav.add(navButton("SECONDI", fontSize, () -> showCategory(secondi)));
+        nav.add(navButton("MENU", fontSize, () -> showCategory(menuCombinati)));
         return nav;
     }
 
@@ -157,6 +161,7 @@ public class Cassa extends JFrame {
         String name = "primi";
         if (toShow == bere) name = "bere";
         else if (toShow == secondi) name = "secondi";
+        else if (toShow == menuCombinati) name = "menucomb";
         else if (toShow == menuBuilder) name = "menu";
         ((java.awt.CardLayout) selezione.getLayout()).show(selezione, name);
     }
@@ -185,7 +190,7 @@ public class Cassa extends JFrame {
         toolbar.add(toolbarButton("OMAGGIO",
                 new Color(70, 130, 180), new Color(100, 160, 210), new Color(40, 90, 140), fontSize,
                 basket::setPricesToZero));
-        toolbar.add(toolbarButton("MENU'",
+        toolbar.add(toolbarButton("NUOVO MENU",
                 new Color(90, 150, 90), new Color(120, 180, 120), new Color(60, 120, 60), fontSize,
                 () -> showCategory(menuBuilder)));
         return toolbar;
@@ -391,15 +396,15 @@ public class Cassa extends JFrame {
             }
         });
 
-        primi.add(b);
-        primi.revalidate();
-        primi.repaint();
+        menuCombinati.add(b);
+        menuCombinati.revalidate();
+        menuCombinati.repaint();
     }
 
     private void removeGroupedItem(GroupedItem gi, JButton button) {
-        primi.remove(button);
-        primi.revalidate();
-        primi.repaint();
+        menuCombinati.remove(button);
+        menuCombinati.revalidate();
+        menuCombinati.repaint();
         groupedItemList.remove(gi);
         try {
             store.save(groupedItemList);
