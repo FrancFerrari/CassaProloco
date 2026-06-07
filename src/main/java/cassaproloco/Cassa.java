@@ -381,8 +381,8 @@ public class Cassa extends JFrame {
         JFrame frame = new JFrame("Resoconto Vendite");
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setContentPane(pannello);
-        frame.setSize(500, 400);
-        frame.setLocationRelativeTo(null);
+        frame.setSize(720, 520);
+        frame.setLocationRelativeTo(this);
         frame.setVisible(true);
     }
 
