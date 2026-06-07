@@ -73,7 +73,7 @@ public class Cassa extends JFrame {
     private JPanel menuCombinati; // griglia dei menu combinati salvati
     private JPanel selezione;   // stack (OverlayLayout) delle categorie
     private MenuBuilderPanel menuBuilder;
-    private JPanelBasket basketPanel;
+    private BasketPanel basketPanel;
     private JScrollPane basketScroll;
     private JLabel lblTotal;
     private JLabel lblCount;
@@ -210,7 +210,7 @@ public class Cassa extends JFrame {
     }
 
     private JScrollPane buildBasketArea() {
-        basketPanel = new JPanelBasket();
+        basketPanel = new BasketPanel();
         basketPanel.setBackground(Theme.BASKET_BG);
         // margine attorno alle righe (sopra + ai lati)
         basketPanel.setBorder(new EmptyBorder(20, 16, 8, 16));
@@ -444,7 +444,7 @@ public class Cassa extends JFrame {
     }
 
     private void showSalesReport() {
-        JPanel pannello = new PannelloResocontoVendite(AppPaths.base());
+        JPanel pannello = new SalesReportPanel(AppPaths.base());
         JFrame frame = new JFrame("Resoconto Vendite");
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setContentPane(pannello);
@@ -462,7 +462,7 @@ public class Cassa extends JFrame {
      * calcolato da {@link SalePlanner} (logica pura, testabile). La stampa vera e
      * propria — che blocca — viene poi eseguita in un {@link SwingWorker} così la
      * UI non si congela. Il rendering dello scontrino ({@link #printOnce},
-     * {@link #printItem}, {@link ModelloStampa}) resta invariato.
+     * {@link #printItem}, {@link ReceiptModel}) resta invariato.
      */
     private void printAndRecord() {
         if (basketPanel.getArticlesCount() == 0) {
@@ -480,7 +480,7 @@ public class Cassa extends JFrame {
         // 1) Lettura del carrello sull'EDT e calcolo del piano (Swing-safe)
         List<SalePlanner.Line> lines = new ArrayList<>();
         for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {
-            JPanelBasketLine line = basketPanel.getArticles(idx);
+            BasketLinePanel line = basketPanel.getArticles(idx);
             boolean isGroup = line.isGrouped();
             int qty = isGroup ? basket.getGroupedItemQty(line.getGroupedItem())
                               : basket.getItemQty(line.getItem());
@@ -537,7 +537,7 @@ public class Cassa extends JFrame {
 
     /** Stampa una singola voce sullo scontrino (un'unica via di stampa). */
     private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label) {
-        ModelloStampa ms = new ModelloStampa(price, qty, name, new Date());
+        ReceiptModel ms = new ReceiptModel(price, qty, name, new Date());
         Book book = new Book();
         book.append(ms, pf);
         job.setPageable(book);

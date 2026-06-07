@@ -24,7 +24,7 @@ import javax.swing.table.DefaultTableModel;
  * (quantità e incasso) e il totale giornaliero. I dati arrivano da
  * {@link SalesReportRepository}. Eredita il look FlatLaf dell'applicazione.
  */
-public class PannelloResocontoVendite extends JPanel {
+public class SalesReportPanel extends JPanel {
 
     private final DefaultTableModel model;
     private final JComboBox<String> comboDate = new JComboBox<>();
@@ -32,7 +32,7 @@ public class PannelloResocontoVendite extends JPanel {
     private final File csvFolder;
     private final SalesReportRepository repo = new SalesReportRepository();
 
-    public PannelloResocontoVendite(File csvFolder) {
+    public SalesReportPanel(File csvFolder) {
         this.csvFolder = csvFolder;
         setLayout(new BorderLayout(0, 10));
         setBorder(new EmptyBorder(12, 12, 12, 12));

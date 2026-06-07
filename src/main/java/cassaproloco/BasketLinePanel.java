@@ -25,12 +25,12 @@ import javax.swing.SwingConstants;
  * i controlli mantengono dimensione fissa sul lato destro e restano sempre
  * visibili anche quando la riga viene stesa alla larghezza del carrello.
  */
-public class JPanelBasketLine extends JPanel {
+public class BasketLinePanel extends JPanel {
 
     private final boolean isGrouped;
     private final Item i;
     private final GroupedItem gi;
-    private final JPanelBasket parent;
+    private final BasketPanel parent;
     private final int fontSize;
 
     private final JLabel lblText = new JLabel();
@@ -41,7 +41,7 @@ public class JPanelBasketLine extends JPanel {
     private final JButton btnDelete = new JButton("X");
     private final JToggleButton selectBtn = new JToggleButton("S");
 
-    public JPanelBasketLine(boolean isGrouped, Item i, GroupedItem gi, JPanelBasket parent) {
+    public BasketLinePanel(boolean isGrouped, Item i, GroupedItem gi, BasketPanel parent) {
         this.isGrouped = isGrouped;
         this.i = i;
         this.gi = gi;
@@ -63,7 +63,7 @@ public class JPanelBasketLine extends JPanel {
         updateText();
     }
 
-    private static int rowHeight(JPanelBasket parent) {
+    private static int rowHeight(BasketPanel parent) {
         int h = parent.getHeight();
         if (h <= 0) {
             h = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();

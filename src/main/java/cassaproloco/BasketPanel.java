@@ -23,14 +23,14 @@ import javax.swing.Scrollable;
  * <p>Implementa {@link Scrollable} con {@code tracksViewportWidth = true} così le
  * righe seguono la larghezza del viewport e i controlli restano sempre visibili.
  */
-public class JPanelBasket extends JPanel implements Scrollable {
+public class BasketPanel extends JPanel implements Scrollable {
 
-    private final List<JPanelBasketLine> articles = new ArrayList<>();
+    private final List<BasketLinePanel> articles = new ArrayList<>();
     private Basket basket;
     private JLabel lblTotal;
     private JLabel lblCount;
 
-    public JPanelBasket() {
+    public BasketPanel() {
         setOpaque(false);
         setBackground(Theme.BASKET_BG);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -64,7 +64,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
         return articles.size();
     }
 
-    public JPanelBasketLine getArticles(int idx) {
+    public BasketLinePanel getArticles(int idx) {
         return articles.get(idx);
     }
 
@@ -81,14 +81,14 @@ public class JPanelBasket extends JPanel implements Scrollable {
     }
 
     private void updateOrAddLine(Item i, GroupedItem gi) {
-        for (JPanelBasketLine line : articles) {
+        for (BasketLinePanel line : articles) {
             if (line.getItem().equals(i) && line.isGrouped() == (gi != null)) {
                 line.updateText();
                 updateTotalText();
                 return;
             }
         }
-        articles.add(new JPanelBasketLine(gi != null, i, gi, this));
+        articles.add(new BasketLinePanel(gi != null, i, gi, this));
         rebuild();
     }
 
@@ -104,7 +104,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
     /** Ricostruisce la lista di righe (BoxLayout verticale) con spaziatura. */
     private void rebuild() {
         removeAll();
-        for (JPanelBasketLine line : articles) {
+        for (BasketLinePanel line : articles) {
             line.setAlignmentX(LEFT_ALIGNMENT);
             add(line);
             add(Box.createVerticalStrut(10));
@@ -116,7 +116,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
 
     /** Aggiorna tutte le righe e il totale. */
     public void updateAll() {
-        for (JPanelBasketLine line : articles) {
+        for (BasketLinePanel line : articles) {
             line.updateText();
         }
         updateTotalText();
@@ -141,7 +141,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
     }
 
     /** Rimuove la riga sia dalla UI sia dalla lista interna. */
-    public void removeLine(JPanelBasketLine line) {
+    public void removeLine(BasketLinePanel line) {
         articles.remove(line);
         rebuild();
     }

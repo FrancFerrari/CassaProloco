@@ -26,11 +26,11 @@ import javax.swing.SwingConstants;
  * {@code JFrame} per ogni scontrino (era inutile) e la geometria è in
  * {@link ReceiptGeometry}.
  */
-public class ModelloStampa extends javax.swing.JPanel implements Printable {
+public class ReceiptModel extends javax.swing.JPanel implements Printable {
 
     private final Paint panel;
 
-    public ModelloStampa(String price, String numelements, String name, Date d) {
+    public ReceiptModel(String price, String numelements, String name, Date d) {
         panel = new Paint();
         panel.setLayout(null);
         panel.setBackground(Color.white);

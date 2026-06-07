@@ -10,7 +10,7 @@ import java.util.Date;
 import javax.imageio.ImageIO;
 
 /**
- * Strumento di anteprima/test della stampa: renderizza {@link ModelloStampa}
+ * Strumento di anteprima/test della stampa: renderizza {@link ReceiptModel}
  * — con lo <b>stesso</b> metodo {@code print(Graphics, PageFormat, page)} che usa
  * la stampante — su file PNG, così da poter verificare l'aspetto dello scontrino
  * senza una stampante fisica.
@@ -31,16 +31,16 @@ public final class ReceiptPreview {
         File outDir = new File(System.getProperty("java.io.tmpdir"));
 
         render(new File(outDir, "scontrino_singolo.png"),
-                new ModelloStampa("2.50", "2", "Coca-cola alla spina", new Date()), pf);
+                new ReceiptModel("2.50", "2", "Coca-cola alla spina", new Date()), pf);
         render(new File(outDir, "scontrino_menu_portata.png"),
-                new ModelloStampa("", "1", "Panini Porchetta", new Date()), pf);
+                new ReceiptModel("", "1", "Panini Porchetta", new Date()), pf);
         render(new File(outDir, "scontrino_nome_lungo.png"),
-                new ModelloStampa("7.00", "1", "Vino litro", new Date()), pf);
+                new ReceiptModel("7.00", "1", "Vino litro", new Date()), pf);
 
         System.out.println("Anteprime salvate in: " + outDir.getAbsolutePath());
     }
 
-    private static void render(File out, ModelloStampa receipt, PageFormat pf) throws Exception {
+    private static void render(File out, ReceiptModel receipt, PageFormat pf) throws Exception {
         int wpx = (int) Math.ceil(pf.getWidth() / 72.0 * DPI);
         int hpx = (int) Math.ceil(pf.getHeight() / 72.0 * DPI);
 

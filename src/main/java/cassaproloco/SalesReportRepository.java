@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /**
  * Legge i file CSV giornalieri ({@code report_AAAA-MM-GG.csv}) e aggrega le
- * vendite per nome prodotto. Logica estratta da {@code PannelloResocontoVendite}
+ * vendite per nome prodotto. Logica estratta da {@code SalesReportPanel}
  * per renderla testabile senza UI.
  */
 public class SalesReportRepository {

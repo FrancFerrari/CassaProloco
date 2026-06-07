@@ -14,12 +14,12 @@ import java.util.Map;
  * {@link #priceOverrides} e lo applica nei calcoli.
  */
 public class Basket implements Iterable<Map.Entry<Item, Integer>> {
-    private JPanelBasket parent;
+    private BasketPanel parent;
     private final Map<Item, Integer> items        = new HashMap<>();
     private final Map<GroupedItem, Integer> groups = new HashMap<>();
     private final Map<Item, Integer> priceOverrides = new HashMap<>(); // centesimi
 
-    public void setParent(JPanelBasket parent) {
+    public void setParent(BasketPanel parent) {
         this.parent = parent;
     }
 
@@ -137,7 +137,7 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return i.getText();
     }
 
-    /** Notifica il JPanelBasket di aggiornare le righe e il totale. */
+    /** Notifica il BasketPanel di aggiornare le righe e il totale. */
     private void notifyUI() {
         if (parent != null) {
             parent.updateAll();

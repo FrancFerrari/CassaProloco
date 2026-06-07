@@ -8,7 +8,7 @@ import java.awt.print.PrinterJob;
  * Geometria dello scontrino (carta 6.2×4 cm) e conversioni cm→punti.
  *
  * <p>Estratta da {@code Cassa} per disaccoppiare la stampa dalla finestra:
- * {@link ModelloStampa} e {@code Cassa} usano questa classe. I valori sono
+ * {@link ReceiptModel} e {@code Cassa} usano questa classe. I valori sono
  * invariati rispetto a prima, quindi lo scontrino resta identico.
  */
 final class ReceiptGeometry {

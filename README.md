@@ -60,22 +60,25 @@ cassaproloco/
     MenuConfigLoader     Parsing dei .cfg (UTF-8)
     GroupedItemStore     Persistenza menu in JSON (Gson) + migrazione da .ser
     SalesRecorder        Append vendite su CSV (Csv = RFC 4180, Locale.ROOT)
+    SalePlanner          Piano di stampa (Unito/Separato/menu) — funzione pura testabile
     SalesReportRepository Lettura/aggregazione CSV per il Resoconto
   stampa:
-    ModelloStampa, Paint Rendering dello scontrino (Printable)
+    ReceiptModel, Paint  Rendering dello scontrino (Printable)
+    ReceiptGeometry      Geometria scontrino (cm→pt, PageFormat)
     ReceiptPreview       Anteprima dello scontrino su PNG (test senza stampante)
-  componenti UI:
-    JPanelBasket, JPanelBasketLine, ModernButtonUI, RoundedTextField, ...
+  UI:
+    BasketPanel, BasketLinePanel, SalesReportPanel, MenuEditorDialog,
+    ModernButtonUI, RoundedTextField, ...
 ```
 
-Struttura file: `src/main/java`, `src/test/java`, `repo/` (Maven locale),
+Struttura file: `src/main/java`, `src/test/java`,
 `*.cfg` (menu), `dist/` (build), `docs/` (note, incluso `docs/stampa.md`).
 
 ## Stampa
 
 Lo scontrino è 6.2×4 cm; la stampa va sulla stampante predefinita di sistema. Il flusso e il
 formato sono documentati in [`docs/stampa.md`](docs/stampa.md). Lo stato funzionante è
-marcato dal tag git `print-baseline-v1`.
+marcato dal tag git `print-baseline-v3`.
 
 Per vedere l'aspetto dello scontrino senza stampante:
 

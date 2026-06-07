@@ -11,7 +11,7 @@ import java.util.List;
  *
  * <p>È una funzione <b>pura</b> (nessuna UI, nessuna stampante): per questo è
  * facilmente testabile. La stampa vera e propria resta a {@code Cassa}
- * ({@code printOnce}/{@code printItem} + {@link ModelloStampa}, invariati).
+ * ({@code printOnce}/{@code printItem} + {@link ReceiptModel}, invariati).
  */
 public final class SalePlanner {
 

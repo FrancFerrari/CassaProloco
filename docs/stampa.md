@@ -7,16 +7,20 @@ poterla ripristinare se una futura modifica la dovesse alterare.
 > reale). Le modifiche ammesse (es. stampa fuori dall'EDT) devono *avvolgere* la
 > stampa, non cambiare il rendering.
 
-Snapshot di codice recuperabile: **git tag `print-baseline-v1`** (commit della Fase 4b).
-Per recuperare i file di stampa a quello stato:
+Snapshot di codice recuperabili (git tag):
+- **`print-baseline-v3`** — stato attuale (classi rinominate: `ReceiptModel`, `ReceiptGeometry`).
+- **`print-baseline-v2`** — dopo l'estrazione di `ReceiptGeometry` (la classe scontrino si chiamava ancora `ModelloStampa`).
+- **`print-baseline-v1`** — Fase 4b (`ModelloStampa` creava un JFrame).
+
+Per recuperare i file di stampa allo stato attuale:
 ```
-git checkout print-baseline-v1 -- src/main/java/cassaproloco/ModelloStampa.java \
-    src/main/java/cassaproloco/Paint.java src/main/java/cassaproloco/Cassa.java
+git checkout print-baseline-v3 -- src/main/java/cassaproloco/ReceiptModel.java \
+    src/main/java/cassaproloco/Paint.java src/main/java/cassaproloco/ReceiptGeometry.java
 ```
 
 ## Componenti coinvolti
 
-- **`ModelloStampa`** (`implements java.awt.print.Printable`): costruisce lo scontrino.
+- **`ReceiptModel`** (`implements java.awt.print.Printable`): costruisce lo scontrino.
   Disegna su un pannello `Paint` (layout `null`, posizioni assolute via `setBounds`):
   - prezzo `"<price>€"` (se price non vuoto) a (130,55)
   - riga `"<qty>x <Nome>"` centrata a y=30
