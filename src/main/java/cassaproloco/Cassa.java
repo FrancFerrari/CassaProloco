@@ -206,15 +206,12 @@ public class Cassa extends JFrame {
     private JScrollPane buildBasketArea() {
         basketPanel = new JPanelBasket();
         basketPanel.setBackground(Theme.BASKET_BG);
-        basketPanel.setLayout(new VerticalFlowLayout());
+        // margine attorno alle righe (sopra + ai lati)
+        basketPanel.setBorder(new EmptyBorder(20, 16, 8, 16));
 
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBorder(new EmptyBorder(20, 0, 0, 0));
-        wrapper.setBackground(Theme.BASKET_BG);
-        wrapper.add(basketPanel, BorderLayout.CENTER);
-
-        basketScroll = new JScrollPane(wrapper);
+        basketScroll = new JScrollPane(basketPanel);
         basketScroll.setBackground(Theme.BASKET_BG);
+        basketScroll.getViewport().setBackground(Theme.BASKET_BG);
         basketScroll.setBorder(null);
         basketScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         basketScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);

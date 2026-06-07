@@ -5,48 +5,135 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 
-public class JPanelBasketLine extends javax.swing.JPanel {
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JToggleButton;
+import javax.swing.SwingConstants;
+
+/**
+ * Una riga del carrello: nome a sinistra, a destra i controlli
+ * (− quantità +), prezzo, toggle Separato/Unito e cancella.
+ *
+ * <p>Usa un {@code GridBagLayout}: il nome ha {@code weightx=1} (si comprime),
+ * i controlli mantengono dimensione fissa sul lato destro e restano sempre
+ * visibili anche quando la riga viene stesa alla larghezza del carrello.
+ */
+public class JPanelBasketLine extends JPanel {
+
     private final boolean isGrouped;
     private final Item i;
     private final GroupedItem gi;
     private final JPanelBasket parent;
-    private int width;
-    private int height;
-    private int btnSize;
-    private int fontSize;
-    private int btnSizeSeparato;
-    private Dimension panelSize;
-    
+    private final int fontSize;
+
+    private final JLabel lblText = new JLabel();
+    private final JLabel lblPrice = new JLabel();
+    private final RoundedTextField lblQty = new RoundedTextField(1);
+    private final JButton btnAdd = new JButton("+");
+    private final JButton btnRemove = new JButton("−");
+    private final JButton btnDelete = new JButton("X");
+    private final JToggleButton selectBtn = new JToggleButton("S");
+
     public JPanelBasketLine(boolean isGrouped, Item i, GroupedItem gi, JPanelBasket parent) {
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        width = (int) screenSize.getWidth();
-        height = (int) screenSize.getHeight();
-        //btnSize = (int)(height * 0.02); // ad es. 5% dell'altezza
-        
-        //btnSizeSeparato = (int)(height * 0.08); // ad es. 5% dell'altezza
-        //btnSize = Math.max(20, Math.min(btnSize, 50));
-        //fontSize = (int)(height * 0.03);
-
-        //fontSize = Math.max(12, Math.min(fontSize, 24));
-        
-        panelSize = parent.getSize(); // o this.getParent().getSize();
-        fontSize = (int)(panelSize.height * 0.04);
-        btnSize = (int)(panelSize.height * 0.06);
-        //btnSize = Math.max(20, Math.min(btnSize, 50));
-
-
-        initComponents();
         this.isGrouped = isGrouped;
-        this.i         = i;
-        this.gi        = gi;
-        this.parent    = parent;
+        this.i = i;
+        this.gi = gi;
+        this.parent = parent;
+
+        int rowHeight = rowHeight(parent);
+        this.fontSize = Math.max(14, (int) (rowHeight * 0.42));
+        int btnSize = Math.max(28, (int) (rowHeight * 0.6));
+
         setOpaque(false);
-        lblText.setText(i.getTextToPrint());
-        lblText.setFont(new Font("Helvetica", Font.BOLD, fontSize));
+        setBackground(Theme.BASKET_LINE_BG);
+        setLayout(new GridBagLayout());
+        setPreferredSize(new Dimension(400, rowHeight));
+        setMinimumSize(new Dimension(200, rowHeight));
+        // larghezza massima ampia: BoxLayout stende la riga alla larghezza del carrello
+        setMaximumSize(new Dimension(Short.MAX_VALUE, rowHeight));
+
+        buildLayout(btnSize);
         updateText();
+    }
+
+    private static int rowHeight(JPanelBasket parent) {
+        int h = parent.getHeight();
+        if (h <= 0) {
+            h = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();
+        }
+        return Math.max(60, h / 11);
+    }
+
+    private void buildLayout(int btnSize) {
+        // Nome (colonna 0): si espande/comprime, lasciando spazio fisso ai controlli
+        lblText.setText(i.getTextToPrint());
+        lblText.setForeground(Theme.TEXT_ON_DARK);
+        lblText.setFont(new Font("Helvetica", Font.BOLD, fontSize));
+
+        styleButton(btnRemove, btnSize, new Color(115, 72, 97), new Color(255, 225, 156), new Color(78, 108, 135));
+        btnRemove.addActionListener(e -> subtractAction());
+
+        lblQty.setEditable(false);
+        lblQty.setFocusable(false);
+        lblQty.setOpaque(false);
+        lblQty.setForeground(Color.BLACK);
+        lblQty.setHorizontalAlignment(SwingConstants.CENTER);
+        lblQty.setBorder(null);
+        lblQty.setText("1");
+        lblQty.setFont(new Font("Helvetica", Font.BOLD, fontSize));
+        lblQty.setPreferredSize(new Dimension(btnSize, btnSize));
+
+        styleButton(btnAdd, btnSize, new Color(115, 72, 97), new Color(255, 225, 156), new Color(78, 108, 135));
+        btnAdd.addActionListener(e -> addAction());
+
+        lblPrice.setForeground(Theme.TEXT_ON_DARK);
+        lblPrice.setHorizontalAlignment(SwingConstants.RIGHT);
+        lblPrice.setFont(new Font("Helvetica", Font.BOLD, fontSize));
+        lblPrice.setPreferredSize(new Dimension(Math.max(110, btnSize * 2), btnSize));
+
+        selectBtn.setUI(new ModernToggleButtonUI(
+                new Color(70, 90, 120), new Color(100, 130, 170),
+                new Color(40, 60, 90), new Color(80, 110, 150), Color.WHITE));
+        selectBtn.setMargin(new Insets(0, 0, 0, 0));
+        selectBtn.setPreferredSize(new Dimension(btnSize, btnSize));
+        selectBtn.addActionListener(e -> selectBtn.setText(selectBtn.isSelected() ? "U" : "S"));
+
+        styleButton(btnDelete, btnSize, Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK);
+        btnDelete.addActionListener(e -> removeAction());
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridy = 0;
+        c.fill = GridBagConstraints.NONE;
+
+        c.gridx = 0;
+        c.weightx = 1.0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(0, 16, 0, 8);
+        add(lblText, c);
+
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        c.insets = new Insets(0, 4, 0, 4);
+        c.gridx = 1; add(btnRemove, c);
+        c.gridx = 2; add(lblQty, c);
+        c.gridx = 3; add(btnAdd, c);
+        c.gridx = 4; add(lblPrice, c);
+        c.gridx = 5; add(selectBtn, c);
+        c.gridx = 6; c.insets = new Insets(0, 4, 0, 14); add(btnDelete, c);
+    }
+
+    private void styleButton(JButton b, int size, Color base, Color hover, Color click) {
+        b.setUI(new ModernButtonUI(base, hover, click, Color.WHITE));
+        b.setFont(new Font("Tahoma", Font.BOLD, fontSize));
+        b.setPreferredSize(new Dimension(size, size));
     }
 
     public Item getItem() {
@@ -61,20 +148,21 @@ public class JPanelBasketLine extends javax.swing.JPanel {
         return isGrouped;
     }
 
+    /** true = UNITO (un solo scontrino), false = SEPARATO (uno per unità). */
+    public boolean isUnitPrinting() {
+        return selectBtn.isSelected();
+    }
+
     public void updateText() {
         int qty = isGrouped
                 ? parent.getBasket().getGroupedItemQty(gi)
                 : parent.getBasket().getItemQty(i);
-
         lblQty.setText(String.valueOf(qty));
-        lblQty.setFont(new Font("Helvetica", Font.BOLD, fontSize));
 
         float price = isGrouped
                 ? parent.getBasket().getGroupedItemTotalPrice(gi)
                 : parent.getBasket().getItemTotalPrice(i);
-
         lblPrice.setText(String.format("%.2f€", price));
-        lblPrice.setFont(new Font("Helvetica", Font.BOLD, fontSize));
 
         parent.updateTotalText();
     }
@@ -87,244 +175,26 @@ public class JPanelBasketLine extends javax.swing.JPanel {
 
     private void subtractAction() {
         boolean nowZero = isGrouped
-            ? parent.getBasket().subtractGroupedItem(gi) == 0
-            : parent.getBasket().subtractItem(i) == 0;
-
+                ? parent.getBasket().subtractGroupedItem(gi) == 0
+                : parent.getBasket().subtractItem(i) == 0;
         if (nowZero) removeAction();
         else         updateText();
     }
 
     private void removeAction() {
-        if (isGrouped) {
-            // rimuovo TUTTE le unità di questo GroupedItem
-            parent.getBasket().removeGroupedItem(gi);
-        } else {
-            // rimuovo TUTTE le unità di questo Item
-            parent.getBasket().removeItem(i);
-        }
-        // rimuovo la riga dalla UI
+        if (isGrouped) parent.getBasket().removeGroupedItem(gi);
+        else           parent.getBasket().removeItem(i);
         parent.removeLine(this);
-        // aggiorno la UI (righe e totale)
         parent.updateAll();
-    }
-    
-    public boolean isUnitPrinting() {
-        return selectBtn.isSelected();  // true = UNITO, false = SEPARATO
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D)g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                            RenderingHints.VALUE_ANTIALIAS_ON);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setColor(getBackground());
-        g2.fillRoundRect(0,0,getWidth(),getHeight(),30,30);
+        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
         g2.dispose();
     }
-    
-
-    /**
-     * This method is called from within the constructor to initialize the form.
-     * WARNING: Do NOT modify this code. The content of this method is always
-     * regenerated by the Form Editor.
-     */
-    @SuppressWarnings("unchecked")
-    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
-    private void initComponents() {
-        java.awt.GridBagConstraints gridBagConstraints;
-
-        btnAdd = new javax.swing.JButton();
-        btnRemove = new javax.swing.JButton();
-        btnDelete = new javax.swing.JButton();
-        lblQty = new RoundedTextField(1);
-        lblQty.setOpaque(false);
-        lblQty.setBackground(new Color(255, 255, 255, 180));
-        lblQty.setForeground(Color.BLACK);
-        lblText = new javax.swing.JLabel();
-        lblPrice = new javax.swing.JLabel();
-        selectBtn = new javax.swing.JToggleButton();
-        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(55, 0), new java.awt.Dimension(55, 0), new java.awt.Dimension(55, 32767));
-
-        setBackground(new java.awt.Color(178, 98, 110));
-        setMinimumSize(new Dimension((int)(width*0.4),(int)(height/11)));
-        setPreferredSize(new Dimension((int)(width*0.55),(int)(height/11)));
-        setLayout(new java.awt.GridBagLayout());
-
-        btnAdd.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(115, 72, 97, null)[0],Color.RGBtoHSB(115, 72, 97, null)[1],Color.RGBtoHSB(115, 72, 97, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(78, 108, 135, null)[0],Color.RGBtoHSB(78, 108, 135, null)[1],Color.RGBtoHSB(78, 108, 135, null)[2]), Color.WHITE));
-        btnAdd.setFont(new java.awt.Font("Tahoma", 0, fontSize));
-        btnAdd.setText("+");
-        btnAdd.setAlignmentY(0.0F);
-        btnAdd.setMinimumSize(new Dimension(btnSize, btnSize));
-        btnAdd.setPreferredSize(new Dimension(btnSize, btnSize));
-        btnAdd.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnAddActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 8;
-        gridBagConstraints.gridy = 0;
-        add(btnAdd, gridBagConstraints);
-
-        btnRemove.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(115, 72, 97, null)[0],Color.RGBtoHSB(115, 72, 97, null)[1],Color.RGBtoHSB(115, 72, 97, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(78, 108, 135, null)[0],Color.RGBtoHSB(78, 108, 135, null)[1],Color.RGBtoHSB(78, 108, 135, null)[2]), Color.WHITE));
-        btnRemove.setFont(new java.awt.Font("Tahoma", 0, fontSize));
-        btnRemove.setText("-");
-        btnRemove.setBorderPainted(false);
-        btnRemove.setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
-        btnRemove.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        btnRemove.setMinimumSize(new Dimension(btnSize, btnSize));
-        btnRemove.setPreferredSize(new Dimension(btnSize, btnSize));
-        btnRemove.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnRemoveActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 6;
-        gridBagConstraints.gridy = 0;
-        add(btnRemove, gridBagConstraints);
-
-        btnDelete.setUI(new ModernButtonUI(Color.getHSBColor(Color.RGBtoHSB(228,136,106, null)[0],Color.RGBtoHSB(228,136,106, null)[1],Color.RGBtoHSB(228,136,106, null)[2]),Color.getHSBColor(Color.RGBtoHSB(255,225,156, null)[0],Color.RGBtoHSB(255,225,156, null)[1],Color.RGBtoHSB(255,225,156, null)[2]),Color.getHSBColor(Color.RGBtoHSB(219,157,71, null)[0],Color.RGBtoHSB(219,157,71, null)[1],Color.RGBtoHSB(219,157,71, null)[2]), Color.WHITE));
-        btnDelete.setContentAreaFilled(false);
-        btnDelete.setOpaque(false);
-        btnDelete.setBackground(new java.awt.Color(255, 0, 51));
-        btnDelete.setFont(new java.awt.Font("Tahoma", 1, fontSize));
-        btnDelete.setForeground(new java.awt.Color(255, 255, 255));
-        btnDelete.setText("X");
-        btnDelete.setMinimumSize(new Dimension(btnSize, btnSize));
-        btnDelete.setPreferredSize(new Dimension(btnSize, btnSize));
-        btnDelete.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnDeleteActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 5;
-        gridBagConstraints.gridy = 0;
-        add(btnDelete, gridBagConstraints);
-
-        lblQty.setEditable(false);
-        lblQty.setFocusable(false);
-        lblQty.setFont(new java.awt.Font("Helvetica", Font.BOLD, fontSize));
-        lblQty.setHorizontalAlignment(javax.swing.JTextField.CENTER);
-        lblQty.setText("1");
-        lblQty.setBorder(null);
-        lblQty.setMinimumSize(new Dimension(btnSize, btnSize));
-        lblQty.setPreferredSize(new Dimension(btnSize, btnSize));
-        lblQty.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                lblQtyActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 7;
-        gridBagConstraints.gridy = 0;
-        add(lblQty, gridBagConstraints);
-
-        int dynamicFontSize = (int) (height * 0.03);
-        lblText.setFont(new java.awt.Font("Tahoma", 0, dynamicFontSize));
-        lblText.setPreferredSize(new Dimension((int)(panelSize.height*0.5), (int)(panelSize.height*0.05)));
-        lblText.setForeground(new java.awt.Color(255, 255, 255));
-        lblText.setText("Roba da bere/mangiare");
-        lblText.setName(""); // NOI18N
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = 5;
-        gridBagConstraints.weightx = 10.0;
-        gridBagConstraints.weighty = 10.0;
-        add(lblText, gridBagConstraints);
-
-        lblPrice.setFont(new java.awt.Font("Tahoma", 0, dynamicFontSize));
-        lblPrice.setForeground(new java.awt.Color(255, 255, 255));
-        lblPrice.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
-        lblPrice.setText("Prezzo totale");
-        lblPrice.setAutoscrolls(true);
-        lblPrice.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
-        lblPrice.setPreferredSize(new java.awt.Dimension(100, 50));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 9;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.RELATIVE;
-        add(lblPrice, gridBagConstraints);
-
-        selectBtn.setUI(new ModernToggleButtonUI(
-            new Color(70, 90, 120),    // default blu sobrio
-            new Color(100, 130, 170),  // hover blu chiaro
-            new Color(40, 60, 90),     // click blu scuro
-            new Color(80, 110, 150),   // selezionato blu medio
-            Color.WHITE
-        ));
-        selectBtn.setText("S");
-        selectBtn.setSelected(false);
-        selectBtn.setHorizontalTextPosition(javax.swing.SwingConstants.RIGHT);
-        selectBtn.setMargin(new java.awt.Insets(0, 0, 0, 0));
-        selectBtn.setMaximumSize(new Dimension(btnSize, btnSize));
-        selectBtn.setPreferredSize(new Dimension(btnSize, btnSize));
-        selectBtn.setMinimumSize(new Dimension(btnSize, btnSize));
-        selectBtn.addInputMethodListener(new java.awt.event.InputMethodListener() {
-            public void caretPositionChanged(java.awt.event.InputMethodEvent evt) {
-            }
-            public void inputMethodTextChanged(java.awt.event.InputMethodEvent evt) {
-                selectBtnInputMethodTextChanged(evt);
-            }
-        });
-        selectBtn.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                selectBtnActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 10;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.gridwidth = java.awt.GridBagConstraints.RELATIVE;
-        add(selectBtn, gridBagConstraints);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 10;
-        gridBagConstraints.gridy = 0;
-        add(filler2, gridBagConstraints);
-    }// </editor-fold>//GEN-END:initComponents
-
-    private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
-        addAction();
-    }//GEN-LAST:event_btnAddActionPerformed
-
-    private void btnRemoveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoveActionPerformed
-        subtractAction();
-    }//GEN-LAST:event_btnRemoveActionPerformed
-
-    private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
-        removeAction();
-    }//GEN-LAST:event_btnDeleteActionPerformed
-
-    private void lblQtyActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lblQtyActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_lblQtyActionPerformed
-
-    private void selectBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_selectBtnActionPerformed
-        if (selectBtn.isSelected()) { 
-            selectBtn.setText("U");
-            selectBtn.setSelected(true); 
-        }
-        else  {
-            selectBtn.setSelected(false); 
-            selectBtn.setText("S");
-        }  
-    }//GEN-LAST:event_selectBtnActionPerformed
-
-    private void selectBtnInputMethodTextChanged(java.awt.event.InputMethodEvent evt) {//GEN-FIRST:event_selectBtnInputMethodTextChanged
-        // TODO add your handling code here:
-    }//GEN-LAST:event_selectBtnInputMethodTextChanged
-
-    // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnAdd;
-    private javax.swing.JButton btnDelete;
-    private javax.swing.JButton btnRemove;
-    private javax.swing.Box.Filler filler2;
-    private javax.swing.JLabel lblPrice;
-    private javax.swing.JTextField lblQty;
-    private javax.swing.JLabel lblText;
-    private javax.swing.JToggleButton selectBtn;
-    // End of variables declaration//GEN-END:variables
 }
