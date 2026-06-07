@@ -38,7 +38,11 @@ java -jar dist/CassaProloco.jar
 mvn test
 ```
 
-I test JUnit 5 (20) sono in `src/test/java/cassaproloco/`.
+I test JUnit 5 sono in `src/test/java/cassaproloco/`.
+
+**CI:** è pronto un workflow GitHub Actions in [`docs/ci-workflow.yml`](docs/ci-workflow.yml)
+(build + test a ogni push/PR). Per attivarlo, copiarlo in `.github/workflows/ci.yml`
+(dal web GitHub, oppure da CLI dopo `gh auth refresh -s workflow`).
 
 ## Architettura
 
