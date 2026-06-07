@@ -21,10 +21,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -391,89 +389,47 @@ public class Cassa extends JFrame {
 
     // ============================ STAMPA ============================
 
-    /** Dati di una riga del carrello catturati sull'EDT per stamparli in background. */
-    private static final class LineToPrint {
-        final boolean group;
-        final Item item;
-        final GroupedItem gi;
-        final int qty;
-        final boolean unit;
-        LineToPrint(boolean group, Item item, GroupedItem gi, int qty, boolean unit) {
-            this.group = group;
-            this.item = item;
-            this.gi = gi;
-            this.qty = qty;
-            this.unit = unit;
-        }
-    }
-
     /**
      * Stampa gli scontrini del carrello e registra le vendite su CSV.
      *
-     * <p>La lettura del carrello (componenti Swing) avviene sull'EDT; la stampa
-     * vera e propria — che blocca — viene eseguita in un {@link SwingWorker} così
-     * la UI non si congela. Il rendering dello scontrino ({@link #printItem},
-     * {@link ModelloStampa}) resta invariato.
+     * <p>Il carrello (componenti Swing) viene letto sull'EDT e il piano di stampa
+     * calcolato da {@link SalePlanner} (logica pura, testabile). La stampa vera e
+     * propria — che blocca — viene poi eseguita in un {@link SwingWorker} così la
+     * UI non si congela. Il rendering dello scontrino ({@link #printOnce},
+     * {@link #printItem}, {@link ModelloStampa}) resta invariato.
      */
     private void printAndRecord() {
-        // 1) Lettura del carrello sull'EDT (Swing-safe)
-        final List<LineToPrint> lines = new ArrayList<>();
+        // 1) Lettura del carrello sull'EDT e calcolo del piano (Swing-safe)
+        List<SalePlanner.Line> lines = new ArrayList<>();
         for (int idx = 0; idx < basketPanel.getArticlesCount(); idx++) {
             JPanelBasketLine line = basketPanel.getArticles(idx);
             boolean isGroup = line.isGrouped();
             int qty = isGroup ? basket.getGroupedItemQty(line.getGroupedItem())
                               : basket.getItemQty(line.getItem());
-            if (qty <= 0) continue;
-            lines.add(new LineToPrint(isGroup, line.getItem(), line.getGroupedItem(),
+            lines.add(new SalePlanner.Line(isGroup, line.getItem(), line.getGroupedItem(),
                     qty, line.isUnitPrinting()));
         }
 
         final String todayStr = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
         final File file = AppPaths.file("report_" + todayStr + ".csv");
+        final SalePlanner.Plan plan = SalePlanner.plan(lines, basket, todayStr, file.exists());
         btnPrint.setEnabled(false);
 
         // 2) Stampa + scrittura CSV in background (la UI resta reattiva)
         new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                final PrinterJob job = PrinterJob.getPrinterJob();
-                final PageFormat pf = buildReceiptPageFormat();
-
-                List<String[]> toWrite = new ArrayList<>();
-                if (!file.exists()) {
-                    toWrite.add(new String[] {"Data", "Nome", "Quantità", "PrezzoUnitario"});
-                }
-                List<GroupedItem.Course> courses = Arrays.asList(
-                        GroupedItem.Course.BEVERAGE, GroupedItem.Course.FIRST, GroupedItem.Course.SECOND,
-                        GroupedItem.Course.DESSERT, GroupedItem.Course.COFFEE);
-
-                for (LineToPrint l : lines) {
-                    // "Unito" = un solo scontrino con la quantità; "Separato" = N scontrini da 1
-                    int copies = l.unit ? 1 : l.qty;
-                    final int qtyPerCopy = l.unit ? l.qty : 1;
-                    for (int copy = 0; copy < copies; copy++) {
-                        if (!l.group) {
-                            printOnce(l.item, pf, job, qtyPerCopy);
-                            toWrite.add(new String[] {
-                                    todayStr, l.item.getText(), String.valueOf(qtyPerCopy),
-                                    String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(l.item))
-                            });
-                        } else {
-                            for (GroupedItem.Course c : courses) {
-                                l.gi.getItem(c).ifPresent(item ->
-                                    printItem(job, pf, l.gi.getText(c), String.valueOf(qtyPerCopy), "",
-                                            c.name().toLowerCase()));
-                            }
-                            toWrite.add(new String[] {
-                                    todayStr, l.gi.getMenu().getText(), String.valueOf(qtyPerCopy),
-                                    String.format(Locale.ROOT, "%.2f", basket.getEffectivePrice(l.gi.getMenu()))
-                            });
-                        }
+                PrinterJob job = PrinterJob.getPrinterJob();
+                PageFormat pf = buildReceiptPageFormat();
+                for (SalePlanner.Receipt r : plan.receipts) {
+                    if (r.isSingle()) {
+                        printOnce(r.item, pf, job, r.qty);
+                    } else {
+                        printItem(job, pf, r.name, String.valueOf(r.qty), "", r.courseLabel);
                     }
                 }
-
                 try {
-                    new SalesRecorder().append(file, toWrite);
+                    new SalesRecorder().append(file, plan.csvRows);
                 } catch (IOException e) {
                     showError("Errore durante il salvataggio del CSV:\n" + e.getMessage());
                 }
