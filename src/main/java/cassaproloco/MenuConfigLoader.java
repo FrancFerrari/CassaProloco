@@ -3,8 +3,11 @@ package cassaproloco;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,5 +42,16 @@ public final class MenuConfigLoader {
             }
         }
         return items;
+    }
+
+    /** Salva le voci nel file {@code .cfg} (UTF-8, con intestazione). */
+    public static void save(File file, List<Item> items) throws IOException {
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
+            w.write("Testo pulsante;Testo scontrino;Prezzo\n");
+            for (Item it : items) {
+                w.write(it.getText() + ";" + it.getTextToPrint() + ";"
+                        + Money.formatRoot(it.getPriceCents()) + "\n");
+            }
+        }
     }
 }

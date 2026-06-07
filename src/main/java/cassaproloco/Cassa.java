@@ -193,6 +193,8 @@ public class Cassa extends JFrame {
         toolbar.add(toolbarButton("NUOVO MENU",
                 new Color(90, 150, 90), new Color(120, 180, 120), new Color(60, 120, 60), fontSize,
                 () -> showCategory(menuBuilder)));
+        toolbar.add(toolbarButton("LISTINO", Theme.ACCENT, Theme.PRIMARY, new Color(50, 80, 100), fontSize,
+                this::openMenuEditor));
         return toolbar;
     }
 
@@ -351,9 +353,23 @@ public class Cassa extends JFrame {
     }
 
     private void loadMenuItems() {
-        readItemsFile(AppPaths.file("primi.cfg"), itemsPrimi, primi);
-        readItemsFile(AppPaths.file("bere.cfg"), itemsBere, bere);
-        readItemsFile(AppPaths.file("secondi.cfg"), itemsSecondi, secondi);
+        loadCategoryGrid(AppPaths.file("primi.cfg"), itemsPrimi, primi);
+        loadCategoryGrid(AppPaths.file("bere.cfg"), itemsBere, bere);
+        loadCategoryGrid(AppPaths.file("secondi.cfg"), itemsSecondi, secondi);
+    }
+
+    /** (Ri)carica una categoria: svuota la griglia, rilegge il .cfg, ricrea i pulsanti. */
+    private void loadCategoryGrid(File cfg, List<Item> into, JPanel grid) {
+        grid.removeAll();
+        into.clear();
+        readItemsFile(cfg, into, grid);
+        grid.revalidate();
+        grid.repaint();
+    }
+
+    /** Apre l'editor del listino; al salvataggio ricarica le categorie. */
+    private void openMenuEditor() {
+        new MenuEditorDialog(this, AppPaths.base(), name -> loadMenuItems()).setVisible(true);
     }
 
     private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
