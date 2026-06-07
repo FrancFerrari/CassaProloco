@@ -17,6 +17,8 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Persistenza dei menu combinati ({@link GroupedItem}) in formato JSON.
@@ -28,6 +30,7 @@ import java.util.List;
  */
 public class GroupedItemStore {
 
+    private static final Logger LOG = Logger.getLogger(GroupedItemStore.class.getName());
     private static final Type LIST_TYPE = new TypeToken<List<GroupedItem>>() {}.getType();
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -52,7 +55,7 @@ public class GroupedItemStore {
                     return new ArrayList<>(list);
                 }
             } catch (Exception ex) {
-                System.out.println("GroupedItem JSON non caricati: " + ex.getMessage());
+                LOG.log(Level.WARNING, "GroupedItem JSON non caricati", ex);
             }
             return new ArrayList<>();
         }
@@ -62,7 +65,7 @@ public class GroupedItemStore {
         if (!migrated.isEmpty()) {
             try {
                 save(migrated);
-                System.out.println("Migrazione menu da .ser a JSON completata.");
+                LOG.info("Migrazione menu da .ser a JSON completata.");
             } catch (IOException ignored) {
                 // se non riusciamo a scrivere il JSON, restituiamo comunque i dati migrati
             }
@@ -81,7 +84,7 @@ public class GroupedItemStore {
                 return new ArrayList<>((List<GroupedItem>) obj);
             }
         } catch (Exception ex) {
-            System.out.println("Migrazione .ser fallita (si riparte da vuoto): " + ex.getMessage());
+            LOG.log(Level.WARNING, "Migrazione .ser fallita (si riparte da vuoto)", ex);
         }
         return new ArrayList<>();
     }

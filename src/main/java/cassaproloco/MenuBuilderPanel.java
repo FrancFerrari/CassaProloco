@@ -138,16 +138,24 @@ public class MenuBuilderPanel extends JPanel {
     }
 
     private void onConferma() {
-        float prezzo;
-        try {
-            prezzo = Float.parseFloat(prezzoField.getText().trim());
-        } catch (NumberFormatException ex) {
+        String nome = nomeField.getText().trim();
+        if (nome.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "Il prezzo deve essere un numero (con il punto).", "Errore", JOptionPane.ERROR_MESSAGE);
+                "Inserisci un nome per il menu.", "Errore", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        Item menu = new Item(1, prezzo, nomeField.getText(), nomeField.getText(), 1);
+        float prezzo;
+        try {
+            // accetta sia il punto sia la virgola come separatore decimale
+            prezzo = Float.parseFloat(prezzoField.getText().trim().replace(',', '.'));
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this,
+                "Il prezzo deve essere un numero (es. 7.50 o 7,50).", "Errore", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Item menu = new Item(1, prezzo, nome, nome, 1);
         GroupedItem.Builder builder = new GroupedItem.Builder().withMenu(menu);
 
         if (abilitaPrimi.isSelected() && boxPrimi.getSelectedIndex() != -1) {
