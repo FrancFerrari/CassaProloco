@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SalePlannerTest {
 
-    private Item item(String text, float price) {
-        return new Item(0, price, text, text, 0);
+    private Item item(String text, int priceCents) {
+        return new Item(0, priceCents, text, text, 0);
     }
 
     private SalePlanner.Plan planOf(SalePlanner.Line line, Basket b, boolean csvExists) {
@@ -19,7 +19,7 @@ class SalePlannerTest {
     @Test
     void articoloSingoloUnitoProduceUnSoloScontrino() {
         Basket b = new Basket();
-        Item coca = item("Coca", 2.5f);
+        Item coca = item("Coca", 250);
         b.addItem(coca);
         b.addItem(coca); // qty 2
 
@@ -36,7 +36,7 @@ class SalePlannerTest {
     @Test
     void articoloSingoloSeparatoProduceNScontriniDaUno() {
         Basket b = new Basket();
-        Item coca = item("Coca", 2.5f);
+        Item coca = item("Coca", 250);
         b.addItem(coca);
         b.addItem(coca);
         b.addItem(coca); // qty 3
@@ -54,9 +54,9 @@ class SalePlannerTest {
     void menuEspandeLePortateMaUnaSolaRigaCsv() {
         Basket b = new Basket();
         GroupedItem gi = new GroupedItem.Builder()
-                .withMenu(item("Menu A", 12f))
-                .withBeverage(item("Coca", 2.5f))
-                .withFirst(item("Pasta", 6f))
+                .withMenu(item("Menu A", 1200))
+                .withBeverage(item("Coca", 250))
+                .withFirst(item("Pasta", 600))
                 .build();
         b.addGroupedItem(gi);
 
@@ -73,7 +73,7 @@ class SalePlannerTest {
     @Test
     void omaggioAzzeraIlPrezzoNelCsv() {
         Basket b = new Basket();
-        Item coca = item("Coca", 2.5f);
+        Item coca = item("Coca", 250);
         b.addItem(coca);
         b.setPricesToZero();
 
@@ -85,7 +85,7 @@ class SalePlannerTest {
     @Test
     void intestazioneAggiuntaSeIlCsvNonEsiste() {
         Basket b = new Basket();
-        Item coca = item("Coca", 2.5f);
+        Item coca = item("Coca", 250);
         b.addItem(coca);
 
         SalePlanner.Plan plan = planOf(new SalePlanner.Line(false, coca, null, 1, true), b, false);

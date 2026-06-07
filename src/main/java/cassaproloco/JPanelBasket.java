@@ -113,7 +113,7 @@ public class JPanelBasket extends JPanel implements Scrollable {
     /** Mostra il totale nel label impostato. */
     public void updateTotalText() {
         if (lblTotal != null && basket != null) {
-            lblTotal.setText(String.format("%.2f€", basket.getTotalPrice()));
+            lblTotal.setText(Money.format(basket.getTotalPrice()) + "€");
             lblTotal.setFont(Theme.TOTAL_FONT);
             lblTotal.setForeground(Theme.TEXT_ON_DARK);
             lblTotal.setOpaque(true);

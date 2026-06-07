@@ -93,9 +93,9 @@ public class GroupedItem implements Serializable {
         return getItem(course).map(Item::getQty).orElse(0);
     }
 
-    /* Prezzo dell'item per il corso */
-    public float getPrice(Course course) {
-        return getItem(course).map(Item::getprice).orElse(0f);
+    /* Prezzo (in centesimi) dell'item per il corso */
+    public int getPriceCents(Course course) {
+        return getItem(course).map(Item::getPriceCents).orElse(0);
     }
 
     /* Testo descrittivo dell'item per il corso */

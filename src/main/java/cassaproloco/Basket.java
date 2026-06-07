@@ -17,7 +17,7 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
     private JPanelBasket parent;
     private final Map<Item, Integer> items        = new HashMap<>();
     private final Map<GroupedItem, Integer> groups = new HashMap<>();
-    private final Map<Item, Float> priceOverrides  = new HashMap<>();
+    private final Map<Item, Integer> priceOverrides = new HashMap<>(); // centesimi
 
     public void setParent(JPanelBasket parent) {
         this.parent = parent;
@@ -30,10 +30,10 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         notifyUI();
     }
 
-    /** Prezzo effettivo dell'item, tenendo conto di eventuali omaggi. */
-    public float getEffectivePrice(Item i) {
-        Float override = priceOverrides.get(i);
-        return override != null ? override : i.getprice();
+    /** Prezzo effettivo dell'item in centesimi, tenendo conto di eventuali omaggi. */
+    public int getEffectivePrice(Item i) {
+        Integer override = priceOverrides.get(i);
+        return override != null ? override : i.getPriceCents();
     }
 
     // --- Item methods ---
@@ -70,7 +70,8 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return items.getOrDefault(i, 0);
     }
 
-    public float getItemTotalPrice(Item i) {
+    /** Totale (in centesimi) per l'item. */
+    public int getItemTotalPrice(Item i) {
         return getEffectivePrice(i) * getItemQty(i);
     }
 
@@ -96,15 +97,16 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         return groups.getOrDefault(gi, 0);
     }
 
-    public float getGroupedItemTotalPrice(GroupedItem gi) {
+    /** Totale (in centesimi) per il menu combinato. */
+    public int getGroupedItemTotalPrice(GroupedItem gi) {
         return getEffectivePrice(gi.getMenu()) * getGroupedItemQty(gi);
     }
 
     // --- Common ---
 
-    /** Totale del carrello, prezzi effettivi (omaggi inclusi). */
-    public float getTotalPrice() {
-        float sum = 0f;
+    /** Totale del carrello in centesimi, prezzi effettivi (omaggi inclusi). */
+    public int getTotalPrice() {
+        int sum = 0;
         for (Map.Entry<Item, Integer> e : items.entrySet()) {
             sum += getEffectivePrice(e.getKey()) * e.getValue();
         }
@@ -117,10 +119,10 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
     /** Omaggio: azzera il prezzo effettivo di tutto ciò che è nel carrello. */
     public void setPricesToZero() {
         for (Item item : items.keySet()) {
-            priceOverrides.put(item, 0f);
+            priceOverrides.put(item, 0);
         }
         for (GroupedItem gi : groups.keySet()) {
-            priceOverrides.put(gi.getMenu(), 0f);
+            priceOverrides.put(gi.getMenu(), 0);
         }
         notifyUI();
     }

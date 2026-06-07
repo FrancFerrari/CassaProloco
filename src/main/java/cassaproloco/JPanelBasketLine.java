@@ -159,10 +159,10 @@ public class JPanelBasketLine extends JPanel {
                 : parent.getBasket().getItemQty(i);
         lblQty.setText(String.valueOf(qty));
 
-        float price = isGrouped
+        int price = isGrouped
                 ? parent.getBasket().getGroupedItemTotalPrice(gi)
                 : parent.getBasket().getItemTotalPrice(i);
-        lblPrice.setText(String.format("%.2f€", price));
+        lblPrice.setText(Money.format(price) + "€");
 
         parent.updateTotalText();
     }

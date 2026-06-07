@@ -35,8 +35,8 @@ class MenuConfigLoaderTest {
         assertEquals(2, items.size());
         assertEquals("Coca Cola", items.get(0).getText());
         assertEquals("Coca-cola alla spina", items.get(0).getTextToPrint());
-        assertEquals(2.5f, items.get(0).getprice(), 0.0001f);
-        assertEquals(3.5f, items.get(1).getprice(), 0.0001f);
+        assertEquals(250, items.get(0).getPriceCents());
+        assertEquals(350, items.get(1).getPriceCents());
     }
 
     @Test

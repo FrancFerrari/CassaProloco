@@ -145,17 +145,17 @@ public class MenuBuilderPanel extends JPanel {
             return;
         }
 
-        float prezzo;
+        int prezzoCents;
         try {
             // accetta sia il punto sia la virgola come separatore decimale
-            prezzo = Float.parseFloat(prezzoField.getText().trim().replace(',', '.'));
+            prezzoCents = Money.parse(prezzoField.getText());
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this,
                 "Il prezzo deve essere un numero (es. 7.50 o 7,50).", "Errore", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        Item menu = new Item(1, prezzo, nome, nome, 1);
+        Item menu = new Item(1, prezzoCents, nome, nome, 1);
         GroupedItem.Builder builder = new GroupedItem.Builder().withMenu(menu);
 
         if (abilitaPrimi.isSelected() && boxPrimi.getSelectedIndex() != -1) {
@@ -168,10 +168,10 @@ public class MenuBuilderPanel extends JPanel {
             builder.withBeverage(bereItems.get(boxBere.getSelectedIndex()));
         }
         if (abilitaDolce.isSelected()) {
-            builder.withDessert(new Item(-1, 0f, "Dolce", "Dolce", 1));
+            builder.withDessert(new Item(-1, 0, "Dolce", "Dolce", 1));
         }
         if (abilitaCaffe.isSelected()) {
-            builder.withCoffee(new Item(-2, 0f, "Caffè", "Caffè", 1));
+            builder.withCoffee(new Item(-2, 0, "Caffè", "Caffè", 1));
         }
 
         GroupedItem created;

@@ -3,7 +3,6 @@ package cassaproloco;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Trasforma le righe del carrello nel "piano di stampa": quali scontrini stampare
@@ -124,7 +123,7 @@ public final class SalePlanner {
     }
 
     /** Prezzo per il CSV: punto decimale, indipendente dal locale. */
-    private static String money(float value) {
-        return String.format(Locale.ROOT, "%.2f", value);
+    private static String money(int cents) {
+        return Money.formatRoot(cents);
     }
 }

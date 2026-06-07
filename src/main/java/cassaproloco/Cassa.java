@@ -467,7 +467,7 @@ public class Cassa extends JFrame {
     /** Stampa un singolo Item con la quantità indicata. */
     private void printOnce(Item item, PageFormat pf, PrinterJob job, int qty) {
         printItem(job, pf, basket.getName(item), String.valueOf(qty),
-                String.format("%.2f", basket.getEffectivePrice(item)), "item");
+                Money.format(basket.getEffectivePrice(item)), "item");
     }
 
     /** Stampa una singola voce sullo scontrino (un'unica via di stampa). */

@@ -20,9 +20,9 @@ class GroupedItemStoreTest {
 
     private GroupedItem sampleMenu() {
         return new GroupedItem.Builder()
-                .withMenu(new Item(1, 12f, "Menu completo", "Menu completo", 1))
-                .withBeverage(new Item(0, 2.5f, "Coca", "Coca", 1))
-                .withFirst(new Item(0, 6f, "Pasta", "Pasta al ragu", 1))
+                .withMenu(new Item(1, 1200, "Menu completo", "Menu completo", 1))
+                .withBeverage(new Item(0, 250, "Coca", "Coca", 1))
+                .withFirst(new Item(0, 600, "Pasta", "Pasta al ragu", 1))
                 .build();
     }
 

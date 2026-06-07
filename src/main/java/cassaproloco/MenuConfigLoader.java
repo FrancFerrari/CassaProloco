@@ -32,8 +32,7 @@ public final class MenuConfigLoader {
                     continue;
                 }
                 try {
-                    float price = Float.parseFloat(parts[2].trim());
-                    items.add(new Item(0, price, parts[0], parts[1], 1));
+                    items.add(new Item(0, Money.parse(parts[2]), parts[0], parts[1], 1));
                 } catch (NumberFormatException ignored) {
                     // riga con prezzo non valido: la salto
                 }
