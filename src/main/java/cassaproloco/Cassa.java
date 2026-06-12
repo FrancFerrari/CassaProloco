@@ -149,7 +149,7 @@ public class Cassa extends JFrame {
 
     private JButton navButton(String text, int fontSize, Runnable action) {
         JButton b = new JButton(text);
-        b.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
+        b.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
         b.setFont(new Font("Segoe UI", Font.BOLD, fontSize));
         b.setPreferredSize(new Dimension(width / 4, height / 10));
         b.addActionListener(e -> action.run());
@@ -187,13 +187,11 @@ public class Cassa extends JFrame {
 
         toolbar.add(toolbarButton("RESOCONTO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
                 this::showSalesReport));
-        toolbar.add(toolbarButton("OMAGGIO",
-                new Color(70, 130, 180), new Color(100, 160, 210), new Color(40, 90, 140), fontSize,
+        toolbar.add(toolbarButton("OMAGGIO", Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, fontSize,
                 basket::setPricesToZero));
-        toolbar.add(toolbarButton("NUOVO MENU",
-                new Color(90, 150, 90), new Color(120, 180, 120), new Color(60, 120, 60), fontSize,
+        toolbar.add(toolbarButton("NUOVO MENU", Theme.GREEN_BASE, Theme.GREEN_HOVER, Theme.GREEN_CLICK, fontSize,
                 () -> showCategory(menuBuilder)));
-        toolbar.add(toolbarButton("LISTINO", Theme.ACCENT, Theme.PRIMARY, new Color(50, 80, 100), fontSize,
+        toolbar.add(toolbarButton("LISTINO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
                 this::openMenuEditor));
         return toolbar;
     }
@@ -280,7 +278,7 @@ public class Cassa extends JFrame {
         JPanel printRow = new JPanel(new GridLayout(1, 0));
         printRow.setOpaque(false);
         btnPrint = new JButton("STAMPA");
-        btnPrint.setUI(new ModernButtonUI(Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, Color.WHITE));
+        btnPrint.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
         btnPrint.setFont(new Font("Segoe UI", Font.BOLD, 25));
         btnPrint.setHorizontalAlignment(SwingConstants.LEFT);
         btnPrint.addActionListener(e -> printAndRecord());
@@ -295,7 +293,7 @@ public class Cassa extends JFrame {
 
     private JButton smallButton(String text, Runnable action) {
         JButton b = new JButton(text);
-        b.setUI(new ModernButtonUI(Theme.ACCENT, Theme.PRIMARY, new Color(50, 80, 100), Color.WHITE));
+        b.setUI(new ModernButtonUI(Theme.CARD, Theme.CARD_HOVER, Theme.CARD_CLICK, Theme.TEXT_DARK));
         b.setFont(new Font("Helvetica", Font.BOLD, Math.max(12, (int) (height * 0.014))));
         b.setFocusPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -328,10 +326,10 @@ public class Cassa extends JFrame {
 
     // ============================ MENU / DATI ============================
 
-    /** Crea un pulsante categoria che aggiunge il proprio Item al carrello. */
+    /** Crea un pulsante categoria (tile bianco a "card") che aggiunge il proprio Item. */
     private JButton createMenuButton(String text, ActionListener listener) {
         JButton b = new JButton(text);
-        b.setUI(new ModernButtonUI(Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, Color.WHITE));
+        b.setUI(new ModernButtonUI(Theme.CARD, Theme.CARD_HOVER, Theme.CARD_CLICK, Theme.TEXT_DARK));
         Dimension size = new Dimension(200, 50);
         b.setPreferredSize(size);
         b.setMaximumSize(size);

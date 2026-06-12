@@ -74,10 +74,10 @@ public class BasketLinePanel extends JPanel {
     private void buildLayout(int btnSize) {
         // Nome (colonna 0): si espande/comprime, lasciando spazio fisso ai controlli
         lblText.setText(i.getTextToPrint());
-        lblText.setForeground(Theme.TEXT_ON_DARK);
+        lblText.setForeground(Theme.TEXT_DARK);
         lblText.setFont(new Font("Helvetica", Font.BOLD, fontSize));
 
-        styleButton(btnRemove, btnSize, new Color(115, 72, 97), new Color(255, 225, 156), new Color(78, 108, 135));
+        styleButton(btnRemove, btnSize, Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT);
         btnRemove.addActionListener(e -> subtractAction());
 
         lblQty.setEditable(false);
@@ -90,10 +90,10 @@ public class BasketLinePanel extends JPanel {
         lblQty.setFont(new Font("Helvetica", Font.BOLD, fontSize));
         lblQty.setPreferredSize(new Dimension(btnSize, btnSize));
 
-        styleButton(btnAdd, btnSize, new Color(115, 72, 97), new Color(255, 225, 156), new Color(78, 108, 135));
+        styleButton(btnAdd, btnSize, Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT);
         btnAdd.addActionListener(e -> addAction());
 
-        lblPrice.setForeground(Theme.TEXT_ON_DARK);
+        lblPrice.setForeground(Theme.TEXT_DARK);
         lblPrice.setHorizontalAlignment(SwingConstants.RIGHT);
         lblPrice.setFont(new Font("Helvetica", Font.BOLD, fontSize));
         lblPrice.setPreferredSize(new Dimension(Math.max(110, btnSize * 2), btnSize));
@@ -105,7 +105,7 @@ public class BasketLinePanel extends JPanel {
         selectBtn.setPreferredSize(new Dimension(btnSize, btnSize));
         selectBtn.addActionListener(e -> selectBtn.setText(selectBtn.isSelected() ? "U" : "S"));
 
-        styleButton(btnDelete, btnSize, Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK);
+        styleButton(btnDelete, btnSize, Theme.DANGER_BASE, Theme.DANGER_HOVER, Theme.DANGER_CLICK);
         btnDelete.addActionListener(e -> removeAction());
 
         GridBagConstraints c = new GridBagConstraints();

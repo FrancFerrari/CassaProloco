@@ -130,7 +130,7 @@ public class BasketPanel extends JPanel implements Scrollable {
         if (lblTotal != null) {
             lblTotal.setText(Money.format(basket.getTotalPrice()) + "€");
             lblTotal.setFont(Theme.TOTAL_FONT);
-            lblTotal.setForeground(Theme.TEXT_ON_DARK);
+            lblTotal.setForeground(Theme.PRIMARY);
             lblTotal.setOpaque(true);
             lblTotal.setBackground(Theme.BACKGROUND);
         }
