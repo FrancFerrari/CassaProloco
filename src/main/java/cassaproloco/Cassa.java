@@ -61,6 +61,9 @@ public class Cassa extends JFrame {
             new GroupedItemStore(AppPaths.file("groupedItems.json"), AppPaths.file("groupedItems.ser"));
     private List<GroupedItem> groupedItemList = new ArrayList<>();
     private final Settings settings = Settings.load(AppPaths.file("settings.properties"));
+    private final ReceiptTemplateStore templateStore =
+            new ReceiptTemplateStore(AppPaths.file("receiptTemplate.json"));
+    private ReceiptTemplate template = templateStore.load();
 
     private final List<Item> itemsBere = new ArrayList<>();
     private final List<Item> itemsPrimi = new ArrayList<>();
@@ -188,6 +191,8 @@ public class Cassa extends JFrame {
                 basket::setPricesToZero));
         toolbar.add(toolbarButton("MENU / LISTINO", Theme.GREEN_BASE, Theme.GREEN_HOVER, Theme.GREEN_CLICK, fontSize,
                 this::openMenuManager));
+        toolbar.add(toolbarButton("SCONTRINO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
+                this::openReceiptEditor));
         return toolbar;
     }
 
@@ -396,6 +401,12 @@ public class Cassa extends JFrame {
                 this::onMenuCreated).setVisible(true);
     }
 
+    /** Apre l'editor dello scontrino; al salvataggio ricarica il template per le stampe successive. */
+    private void openReceiptEditor() {
+        new ReceiptEditorDialog(this, templateStore, settings.getRollSize(),
+                () -> template = templateStore.load()).setVisible(true);
+    }
+
     private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
         try {
             for (Item item : MenuConfigLoader.load(file)) {
@@ -562,7 +573,7 @@ public class Cassa extends JFrame {
 
     /** Stampa una singola voce sullo scontrino (un'unica via di stampa). */
     private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label, RollSize roll) {
-        ReceiptModel ms = new ReceiptModel(price, qty, name, new Date(), roll);
+        ReceiptModel ms = new ReceiptModel(price, qty, name, new Date(), roll, template);
         Book book = new Book();
         book.append(ms, pf);
         job.setPageable(book);
