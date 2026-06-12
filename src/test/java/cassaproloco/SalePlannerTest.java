@@ -2,6 +2,7 @@ package cassaproloco;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SalePlannerTest {
 
     private Item item(String text, int priceCents) {
-        return new Item(0, priceCents, text, text, 0);
+        return new Item(priceCents, text, text);
     }
 
     private SalePlanner.Plan planOf(SalePlanner.Line line, Basket b, boolean csvExists) {
@@ -51,23 +52,39 @@ class SalePlannerTest {
     }
 
     @Test
-    void menuEspandeLePortateMaUnaSolaRigaCsv() {
+    void menuEspandeIProdottiMaUnaSolaRigaCsv() {
         Basket b = new Basket();
-        GroupedItem gi = new GroupedItem.Builder()
-                .withMenu(item("Menu A", 1200))
-                .withBeverage(item("Coca", 250))
-                .withFirst(item("Pasta", 600))
-                .build();
+        GroupedItem gi = new GroupedItem(item("Menu A", 1200),
+                Arrays.asList(item("Coca", 250), item("Pasta", 600)));
         b.addGroupedItem(gi);
 
         SalePlanner.Plan plan = planOf(new SalePlanner.Line(true, null, gi, 1, true), b, true);
 
-        // bevanda + primo = 2 scontrini di portata
+        // 2 prodotti = 2 scontrini separati (senza prezzo)
         assertEquals(2, plan.receipts.size());
         assertFalse(plan.receipts.get(0).isSingle());
-        // CSV: solo il menu principale
+        assertEquals("Coca", plan.receipts.get(0).name);
+        assertEquals("Pasta", plan.receipts.get(1).name);
+        // CSV: solo il menu principale, col suo prezzo
         assertEquals(1, plan.csvRows.size());
         assertArrayEquals(new String[]{"2025-08-22", "Menu A", "1", "12.00"}, plan.csvRows.get(0));
+    }
+
+    @Test
+    void menuSeparatoProduceNCopieDiTuttiIProdotti() {
+        Basket b = new Basket();
+        GroupedItem gi = new GroupedItem(item("Menu A", 1200),
+                Arrays.asList(item("Coca", 250), item("Pasta", 600)));
+        b.addGroupedItem(gi);
+
+        // qty 2, Separato -> 2 copie x 2 prodotti = 4 scontrini, 2 righe CSV
+        SalePlanner.Plan plan = planOf(new SalePlanner.Line(true, null, gi, 2, false), b, true);
+
+        assertEquals(4, plan.receipts.size());
+        assertEquals(2, plan.csvRows.size());
+        for (String[] row : plan.csvRows) {
+            assertArrayEquals(new String[]{"2025-08-22", "Menu A", "1", "12.00"}, row);
+        }
     }
 
     @Test

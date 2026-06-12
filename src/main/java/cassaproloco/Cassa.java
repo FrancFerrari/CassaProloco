@@ -48,8 +48,8 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
  * e la barra di navigazione, a destra la toolbar, il carrello e il totale/stampa.
  *
  * <p>La logica di dominio è delegata ai servizi ({@link MenuConfigLoader},
- * {@link GroupedItemStore}, {@link SalesRecorder}); la creazione dei menu
- * combinati al {@link MenuBuilderPanel}.
+ * {@link GroupedItemStore}, {@link SalesRecorder}); la gestione del listino e la
+ * creazione dei menu sono nella finestra unica {@link MenuManagerDialog}.
  */
 public class Cassa extends JFrame {
 
@@ -70,9 +70,8 @@ public class Cassa extends JFrame {
     private JPanel primi;       // griglia PRIMI
     private JPanel bere;        // griglia BERE
     private JPanel secondi;     // griglia SECONDI
-    private JPanel menuCombinati; // griglia dei menu combinati salvati
-    private JPanel selezione;   // stack (OverlayLayout) delle categorie
-    private MenuBuilderPanel menuBuilder;
+    private JPanel menuCombinati; // griglia dei menu salvati
+    private JPanel selezione;   // stack (CardLayout) delle categorie
     private BasketPanel basketPanel;
     private JScrollPane basketScroll;
     private JLabel lblTotal;
@@ -95,7 +94,6 @@ public class Cassa extends JFrame {
 
         wireBasket();
         loadMenuItems();
-        menuBuilder.setItems(itemsBere, itemsPrimi, itemsSecondi);
         loadGroupedItems();
         showCategory(primi);
     }
@@ -110,14 +108,11 @@ public class Cassa extends JFrame {
         secondi = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(700, 661));
         bere = categoryGrid(new GridLayout(5, 5, 4, 4), new Dimension(500, 661));
         menuCombinati = categoryGrid(new GridLayout(4, 5, 4, 4), new Dimension(700, 661));
-        menuBuilder = new MenuBuilderPanel();
-        menuBuilder.setListener(this::onMenuCreated);
 
         selezione.add(primi, "primi");
         selezione.add(bere, "bere");
         selezione.add(secondi, "secondi");
         selezione.add(menuCombinati, "menucomb");
-        selezione.add(menuBuilder, "menu");
 
         JPanel sx = new JPanel(new BorderLayout());
         sx.setBackground(Theme.BACKGROUND);
@@ -162,7 +157,6 @@ public class Cassa extends JFrame {
         if (toShow == bere) name = "bere";
         else if (toShow == secondi) name = "secondi";
         else if (toShow == menuCombinati) name = "menucomb";
-        else if (toShow == menuBuilder) name = "menu";
         ((java.awt.CardLayout) selezione.getLayout()).show(selezione, name);
     }
 
@@ -189,10 +183,8 @@ public class Cassa extends JFrame {
                 this::showSalesReport));
         toolbar.add(toolbarButton("OMAGGIO", Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, fontSize,
                 basket::setPricesToZero));
-        toolbar.add(toolbarButton("NUOVO MENU", Theme.GREEN_BASE, Theme.GREEN_HOVER, Theme.GREEN_CLICK, fontSize,
-                () -> showCategory(menuBuilder)));
-        toolbar.add(toolbarButton("LISTINO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
-                this::openMenuEditor));
+        toolbar.add(toolbarButton("MENU / LISTINO", Theme.GREEN_BASE, Theme.GREEN_HOVER, Theme.GREEN_CLICK, fontSize,
+                this::openMenuManager));
         return toolbar;
     }
 
@@ -365,9 +357,11 @@ public class Cassa extends JFrame {
         grid.repaint();
     }
 
-    /** Apre l'editor del listino; al salvataggio ricarica le categorie. */
-    private void openMenuEditor() {
-        new MenuEditorDialog(this, AppPaths.base(), name -> loadMenuItems()).setVisible(true);
+    /** Apre la finestra unica listino + creazione menu; al salvataggio ricarica le categorie. */
+    private void openMenuManager() {
+        new MenuManagerDialog(this, AppPaths.base(),
+                name -> loadMenuItems(),
+                this::onMenuCreated).setVisible(true);
     }
 
     private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
@@ -394,7 +388,7 @@ public class Cassa extends JFrame {
 
     /** Aggiunge il pulsante di un menu combinato (con menu contestuale di rimozione). */
     public void importMenu(GroupedItem gi) {
-        JButton b = createMenuButton(gi.getText(GroupedItem.Course.MENU),
+        JButton b = createMenuButton(gi.getName(),
                 e -> basketPanel.addGroupedItem(gi));
 
         JPopupMenu popup = new JPopupMenu();

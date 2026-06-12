@@ -1,137 +1,66 @@
 package cassaproloco;
 
 import java.io.Serializable;
-import java.util.EnumMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
-/*
- * Rappresenta un raggruppamento di portate (menu, bevanda, primi, secondi) 
- * con un tipo specifico di menu.
+/**
+ * Un "menu" = un gruppo di prodotti venduti insieme a un <b>prezzo unico</b>, ma
+ * <b>stampati singolarmente</b>: alla stampa, ogni prodotto del gruppo produce
+ * uno scontrino separato (tagliando per la cucina, senza prezzo), mentre il
+ * prezzo del menu viene registrato una sola volta nel resoconto/CSV.
+ *
+ * <p>{@code menu} è la "testata" del gruppo (nome + prezzo combinato);
+ * {@code components} sono i prodotti che lo compongono, in ordine, pescati dal
+ * listino. A differenza del vecchio modello a portate fisse (primo/secondo/
+ * bevanda/dolce/caffè), i prodotti sono un <b>elenco libero</b> di lunghezza
+ * qualsiasi: si possono mettere due primi, tre bibite, ecc.
+ *
+ * <p>Implementa {@link Serializable} solo per compatibilità con la vecchia
+ * migrazione {@code .ser}; la persistenza corrente è in JSON
+ * ({@link GroupedItemStore}), che sa leggere anche il vecchio formato a portate.
  */
 public class GroupedItem implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
-    /* Tipi di portata nel gruppo */
-    public enum Course {
-        MENU, BEVERAGE, FIRST, SECOND, DESSERT, COFFEE;
+    private final Item menu;
+    private final List<Item> components;
+
+    public GroupedItem(Item menu, List<Item> components) {
+        this.menu = Objects.requireNonNull(menu, "menu");
+        this.components = new ArrayList<>(components == null ? Collections.emptyList() : components);
     }
 
-    /* Possibili tipi di menu (reemplazare o estendere secondo necessità) */
-    public enum GroupType {
-        FULL(0),
-        PARTIAL(1),
-        CUSTOM(2);
-
-        private final int id;
-        GroupType(int id) { this.id = id; }
-        public int getId() { return id; }
-        public static Optional<GroupType> fromId(int id) {
-            for (GroupType gt : values()) if (gt.id == id) return Optional.of(gt);
-            return Optional.empty();
-        }
-    }
-
-    private final Map<Course, Item> items;
-    private final GroupType groupType;
-
-    private GroupedItem(Map<Course, Item> items, GroupType groupType) {
-        this.items = new EnumMap<>(Objects.requireNonNull(items));
-        this.groupType = Objects.requireNonNull(groupType);
-    }
-
-    /* Builder per creare in modo fluido un GroupedItem */
-    public static class Builder {
-        private final Map<Course, Item> items = new EnumMap<>(Course.class);
-        private GroupType groupType = GroupType.FULL;
-
-        public Builder withMenu(Item menu) {
-            items.put(Course.MENU, Objects.requireNonNull(menu));
-            return this;
-        }
-        public Builder withBeverage(Item bev) {
-            items.put(Course.BEVERAGE, bev);
-            return this;
-        }
-        public Builder withFirst(Item first) {
-            items.put(Course.FIRST, first);
-            return this;
-        }
-        public Builder withSecond(Item second) {
-            items.put(Course.SECOND, second);
-            return this;
-        }
-        public Builder withDessert(Item dessert) {
-            items.put(Course.DESSERT, Objects.requireNonNull(dessert));
-            return this;
-        }
-        public Builder withCoffee(Item coffee) {
-            items.put(Course.COFFEE, Objects.requireNonNull(coffee));
-            return this;
-        }
-        
-        public Builder ofType(GroupType type) {
-            this.groupType = Objects.requireNonNull(type);
-            return this;
-        }
-        public GroupedItem build() {
-            if (!items.containsKey(Course.MENU)) {
-                throw new IllegalStateException("Menu item is mandatory");
-            }
-            return new GroupedItem(items, groupType);
-        }
-    }
-
-    /* Recupera l'item per il corso specificato */
-    public Optional<Item> getItem(Course course) {
-        return Optional.ofNullable(items.get(course));
-    }
-
-    /* Quantità dell'item per il corso */
-    public int getQty(Course course) {
-        return getItem(course).map(Item::getQty).orElse(0);
-    }
-
-    /* Prezzo (in centesimi) dell'item per il corso */
-    public int getPriceCents(Course course) {
-        return getItem(course).map(Item::getPriceCents).orElse(0);
-    }
-
-    /* Testo descrittivo dell'item per il corso */
-    public String getText(Course course) {
-        return getItem(course).map(Item::getText).orElse("");
-    }
-
-    /* Tipo di menu */
-    public GroupType getType() {
-        return groupType;
-    }
-
-    /* Ritorna l'item associato al menu principale */
+    /** Testata del gruppo: nome + prezzo combinato. */
     public Item getMenu() {
-        return items.get(Course.MENU);
+        return menu;
     }
 
-    /* Ritorna tutti gli item */
-    public Map<Course, Item> getAllItems() {
-        return new EnumMap<>(items);
+    /** Nome del menu (mostrato sul pulsante e nel carrello). */
+    public String getName() {
+        return menu.getText();
+    }
+
+    /** Prezzo combinato del menu, in centesimi. */
+    public int getPriceCents() {
+        return menu.getPriceCents();
+    }
+
+    /** Prodotti che compongono il menu, stampati uno per uno (lista immutabile). */
+    public List<Item> getComponents() {
+        return Collections.unmodifiableList(components);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        items.forEach((course, item) -> sb.append(course)
-                                          .append(": ")
-                                          .append(item)
-                                          .append("\n"));
-        sb.append("Type: ").append(groupType).append(" (id=").append(groupType.getId()).append(")");
-        return sb.toString();
+        return getName() + " (" + components.size() + " prodotti)";
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(items, groupType);
+        return Objects.hash(menu, components);
     }
 
     @Override
@@ -139,7 +68,7 @@ public class GroupedItem implements Serializable {
         if (this == obj) return true;
         if (!(obj instanceof GroupedItem)) return false;
         GroupedItem other = (GroupedItem) obj;
-        return Objects.equals(items, other.items)
-            && groupType == other.groupType;
+        return Objects.equals(menu, other.menu)
+            && Objects.equals(components, other.components);
     }
 }

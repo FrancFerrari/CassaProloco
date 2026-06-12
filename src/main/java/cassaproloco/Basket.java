@@ -1,7 +1,6 @@
 package cassaproloco;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -13,7 +12,7 @@ import java.util.Map;
  * mappa): registra invece un prezzo effettivo alternativo in
  * {@link #priceOverrides} e lo applica nei calcoli.
  */
-public class Basket implements Iterable<Map.Entry<Item, Integer>> {
+public class Basket {
     private BasketPanel parent;
     private final Map<Item, Integer> items        = new HashMap<>();
     private final Map<GroupedItem, Integer> groups = new HashMap<>();
@@ -142,11 +141,6 @@ public class Basket implements Iterable<Map.Entry<Item, Integer>> {
         if (parent != null) {
             parent.updateAll();
         }
-    }
-
-    @Override
-    public Iterator<Map.Entry<Item, Integer>> iterator() {
-        return items.entrySet().iterator();
     }
 
     /** Numero totale di righe (item + group). */

@@ -7,7 +7,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -19,11 +23,11 @@ class GroupedItemStoreTest {
     Path tmp;
 
     private GroupedItem sampleMenu() {
-        return new GroupedItem.Builder()
-                .withMenu(new Item(1, 1200, "Menu completo", "Menu completo", 1))
-                .withBeverage(new Item(0, 250, "Coca", "Coca", 1))
-                .withFirst(new Item(0, 600, "Pasta", "Pasta al ragu", 1))
-                .build();
+        return new GroupedItem(
+                new Item(1200, "Menu completo", "Menu completo"),
+                Arrays.asList(
+                        new Item(250, "Coca", "Coca"),
+                        new Item(600, "Pasta", "Pasta al ragu")));
     }
 
     @Test
@@ -39,7 +43,8 @@ class GroupedItemStoreTest {
         assertEquals(1, loaded.size());
         assertEquals(menu, loaded.get(0));
         assertEquals("Menu completo", loaded.get(0).getMenu().getText());
-        assertEquals("Pasta al ragu", loaded.get(0).getItem(GroupedItem.Course.FIRST).get().getTextToPrint());
+        assertEquals(2, loaded.get(0).getComponents().size());
+        assertEquals("Pasta al ragu", loaded.get(0).getComponents().get(1).getTextToPrint());
     }
 
     @Test
@@ -63,5 +68,36 @@ class GroupedItemStoreTest {
         assertEquals(1, loaded.size());
         assertEquals(sampleMenu(), loaded.get(0));
         assertTrue(json.exists(), "la migrazione deve aver creato il file JSON");
+    }
+
+    @Test
+    void leggeIlVecchioFormatoJsonAPortate() throws IOException {
+        // Vecchio JSON: mappa di portate (MENU + FIRST + BEVERAGE) e groupType.
+        String legacyJson =
+                "[\n" +
+                "  {\n" +
+                "    \"items\": {\n" +
+                "      \"MENU\":     {\"id\":1,\"priceCents\":1200,\"text\":\"Menu A\",\"textToPrint\":\"Menu A\",\"qty\":1},\n" +
+                "      \"FIRST\":    {\"id\":0,\"priceCents\":600,\"text\":\"Pasta\",\"textToPrint\":\"Pasta al ragu\",\"qty\":1},\n" +
+                "      \"BEVERAGE\": {\"id\":0,\"priceCents\":250,\"text\":\"Coca\",\"textToPrint\":\"Coca\",\"qty\":1}\n" +
+                "    },\n" +
+                "    \"groupType\": \"FULL\"\n" +
+                "  }\n" +
+                "]\n";
+        File json = tmp.resolve("groupedItems.json").toFile();
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(json), StandardCharsets.UTF_8)) {
+            w.write(legacyJson);
+        }
+
+        List<GroupedItem> loaded = new GroupedItemStore(json).load();
+
+        assertEquals(1, loaded.size());
+        GroupedItem gi = loaded.get(0);
+        assertEquals("Menu A", gi.getName());
+        assertEquals(1200, gi.getPriceCents());
+        // I prodotti vengono ricavati dalle portate presenti (ordine BEVERAGE, FIRST, ...).
+        assertEquals(2, gi.getComponents().size());
+        assertEquals("Coca", gi.getComponents().get(0).getText());
+        assertEquals("Pasta", gi.getComponents().get(1).getText());
     }
 }

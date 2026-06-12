@@ -2,6 +2,12 @@ package cassaproloco;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
@@ -21,7 +27,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Persistenza dei menu combinati ({@link GroupedItem}) in formato JSON.
+ * Persistenza dei menu ({@link GroupedItem}) in formato JSON.
+ *
+ * <p>Il modello attuale è "testata + lista di prodotti". Per non perdere i menu
+ * salvati col vecchio modello a portate fisse, il deserializzatore è
+ * <b>tollerante</b>: riconosce sia il nuovo formato ({@code menu}+{@code components})
+ * sia il vecchio ({@code items} mappa di portate + {@code groupType}) e converte
+ * il vecchio nella lista di prodotti.
  *
  * <p>Al primo avvio, se il file JSON non esiste ma è presente un vecchio file
  * serializzato ({@code .ser}), tenta una migrazione una-tantum (best-effort):
@@ -33,7 +45,13 @@ public class GroupedItemStore {
     private static final Logger LOG = Logger.getLogger(GroupedItemStore.class.getName());
     private static final Type LIST_TYPE = new TypeToken<List<GroupedItem>>() {}.getType();
 
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    /** Ordine delle vecchie portate, usato per convertire i menu del vecchio formato. */
+    private static final String[] LEGACY_COURSES = {"BEVERAGE", "FIRST", "SECOND", "DESSERT", "COFFEE"};
+
+    private final Gson gson = new GsonBuilder()
+            .setPrettyPrinting()
+            .registerTypeAdapter(GroupedItem.class, new GroupedItemDeserializer())
+            .create();
     private final File jsonFile;
     private final File legacySerFile;
 
@@ -89,10 +107,52 @@ public class GroupedItemStore {
         return new ArrayList<>();
     }
 
-    /** Salva (sovrascrive) la lista dei menu combinati in JSON. */
+    /** Salva (sovrascrive) la lista dei menu in JSON. */
     public void save(List<GroupedItem> items) throws IOException {
         try (Writer w = new OutputStreamWriter(new FileOutputStream(jsonFile), StandardCharsets.UTF_8)) {
             gson.toJson(items, LIST_TYPE, w);
+        }
+    }
+
+    /**
+     * Legge sia il nuovo formato ({@code menu}+{@code components}) sia il vecchio
+     * formato a portate ({@code items}+{@code groupType}), convertendolo nella
+     * lista di prodotti.
+     */
+    private static final class GroupedItemDeserializer implements JsonDeserializer<GroupedItem> {
+        @Override
+        public GroupedItem deserialize(JsonElement el, Type type, JsonDeserializationContext ctx) {
+            JsonObject o = el.getAsJsonObject();
+
+            // Vecchio formato a portate: { "items": { "MENU": {...}, "FIRST": {...} }, "groupType": ... }
+            if (o.has("items") && o.get("items").isJsonObject() && !o.has("components")) {
+                JsonObject items = o.getAsJsonObject("items");
+                Item menu = ctx.deserialize(items.get("MENU"), Item.class);
+                if (menu == null) {
+                    throw new JsonParseException("Menu mancante nel vecchio formato");
+                }
+                List<Item> comps = new ArrayList<>();
+                for (String course : LEGACY_COURSES) {
+                    if (items.has(course) && items.get(course).isJsonObject()) {
+                        comps.add(ctx.<Item>deserialize(items.get(course), Item.class));
+                    }
+                }
+                return new GroupedItem(menu, comps);
+            }
+
+            // Nuovo formato: { "menu": {...}, "components": [ {...}, ... ] }
+            Item menu = ctx.deserialize(o.get("menu"), Item.class);
+            if (menu == null) {
+                throw new JsonParseException("Menu mancante");
+            }
+            List<Item> comps = new ArrayList<>();
+            if (o.has("components") && o.get("components").isJsonArray()) {
+                JsonArray arr = o.getAsJsonArray("components");
+                for (JsonElement ce : arr) {
+                    comps.add(ctx.<Item>deserialize(ce, Item.class));
+                }
+            }
+            return new GroupedItem(menu, comps);
         }
     }
 }

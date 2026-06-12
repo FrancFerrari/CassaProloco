@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BasketTest {
 
     private Item item(String text, int priceCents) {
-        return new Item(0, priceCents, text, text, 0);
+        return new Item(priceCents, text, text);
     }
 
     @Test

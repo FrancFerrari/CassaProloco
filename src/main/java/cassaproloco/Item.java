@@ -4,8 +4,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Voce di menu immutabile: un articolo singolo (es. "Coca Cola") oppure il
- * menu principale di un {@link GroupedItem}.
+ * Voce di menu immutabile: un articolo singolo (es. "Coca Cola") oppure la
+ * testata di un {@link GroupedItem} (menu).
  *
  * <p>Il prezzo è in <b>centesimi interi</b> (vedi {@link Money}) per evitare
  * errori di arrotondamento.
@@ -17,28 +17,16 @@ import java.util.Objects;
  * override, senza mutare l'Item.
  */
 public final class Item implements Serializable {
-    private static final long serialVersionUID = 2L;
+    private static final long serialVersionUID = 3L;
 
-    private final int id;
     private final int priceCents;
-    private final String text;
-    private final String textToPrint;
-    private final int qty;
+    private final String text;        // testo del pulsante
+    private final String textToPrint; // testo da stampare sullo scontrino
 
-    public Item(int id, int priceCents, String text, String textToPrint, int qty) {
-        this.id = id;
+    public Item(int priceCents, String text, String textToPrint) {
         this.priceCents = priceCents;
         this.text = text == null ? "" : text;
         this.textToPrint = textToPrint == null ? "" : textToPrint;
-        this.qty = qty;
-    }
-
-    public Item() {
-        this(0, 0, "", "", 0);
-    }
-
-    public int getID() {
-        return id;
     }
 
     /** Prezzo in centesimi. */
@@ -52,10 +40,6 @@ public final class Item implements Serializable {
 
     public String getTextToPrint() {
         return textToPrint;
-    }
-
-    public int getQty() {
-        return qty;
     }
 
     @Override

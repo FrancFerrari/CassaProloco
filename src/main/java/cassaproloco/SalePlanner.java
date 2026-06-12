@@ -1,23 +1,22 @@
 package cassaproloco;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
  * Trasforma le righe del carrello nel "piano di stampa": quali scontrini stampare
  * e quali righe scrivere nel CSV, applicando le regole Unito/Separato, l'espansione
- * dei menu nelle singole portate e i prezzi effettivi (omaggi inclusi).
+ * dei menu nei singoli prodotti e i prezzi effettivi (omaggi inclusi).
+ *
+ * <p>Un "menu" ({@link GroupedItem}) viene espanso nei suoi prodotti: ognuno
+ * produce uno scontrino separato (senza prezzo), mentre nel CSV finisce una sola
+ * riga col nome e il prezzo del menu.
  *
  * <p>È una funzione <b>pura</b> (nessuna UI, nessuna stampante): per questo è
  * facilmente testabile. La stampa vera e propria resta a {@code Cassa}
  * ({@code printOnce}/{@code printItem} + {@link ReceiptModel}, invariati).
  */
 public final class SalePlanner {
-
-    private static final List<GroupedItem.Course> COURSES = Arrays.asList(
-            GroupedItem.Course.BEVERAGE, GroupedItem.Course.FIRST, GroupedItem.Course.SECOND,
-            GroupedItem.Course.DESSERT, GroupedItem.Course.COFFEE);
 
     private SalePlanner() {
     }
@@ -107,11 +106,11 @@ public final class SalePlanner {
                             money(basket.getEffectivePrice(l.item))
                     });
                 } else {
-                    for (GroupedItem.Course course : COURSES) {
-                        l.gi.getItem(course).ifPresent(it ->
-                            receipts.add(Receipt.course(l.gi.getText(course), qtyPerCopy,
-                                    course.name().toLowerCase())));
+                    // Un menu: ogni prodotto del gruppo → uno scontrino separato (senza prezzo).
+                    for (Item comp : l.gi.getComponents()) {
+                        receipts.add(Receipt.course(comp.getText(), qtyPerCopy, "menu"));
                     }
+                    // Nel CSV una sola riga: nome e prezzo del menu.
                     csv.add(new String[] {
                             dateStr, l.gi.getMenu().getText(), String.valueOf(qtyPerCopy),
                             money(basket.getEffectivePrice(l.gi.getMenu()))
