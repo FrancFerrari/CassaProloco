@@ -27,6 +27,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -58,6 +60,7 @@ public class Cassa extends JFrame {
     private final GroupedItemStore store =
             new GroupedItemStore(AppPaths.file("groupedItems.json"), AppPaths.file("groupedItems.ser"));
     private List<GroupedItem> groupedItemList = new ArrayList<>();
+    private final Settings settings = Settings.load(AppPaths.file("settings.properties"));
 
     private final List<Item> itemsBere = new ArrayList<>();
     private final List<Item> itemsPrimi = new ArrayList<>();
@@ -262,8 +265,14 @@ public class Cassa extends JFrame {
         lblCount = new JLabel("0 articoli");
         lblCount.setForeground(Theme.TEXT_LIGHT);
         lblCount.setBorder(new EmptyBorder(0, 0, 0, 12));
+
+        JPanel rightInfo = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        rightInfo.setOpaque(false);
+        rightInfo.add(buildRollSelector());
+        rightInfo.add(lblCount);
+
         actions.add(leftBtns, BorderLayout.WEST);
-        actions.add(lblCount, BorderLayout.EAST);
+        actions.add(rightInfo, BorderLayout.EAST);
         bottom.add(actions, BorderLayout.NORTH);
 
         // Riga stampa + totale
@@ -292,6 +301,29 @@ public class Cassa extends JFrame {
         b.setPreferredSize(new Dimension(150, 34));
         b.addActionListener(e -> action.run());
         return b;
+    }
+
+    /** Selettore del formato rullino (62/54 mm); la scelta è memorizzata tra i riavvii. */
+    private JComponent buildRollSelector() {
+        JComboBox<RollSize> combo = new JComboBox<>(RollSize.values());
+        combo.setSelectedItem(settings.getRollSize());
+        combo.setFocusable(false);
+        combo.setToolTipText("Larghezza del rullino caricato nella stampante");
+        combo.addActionListener(e -> {
+            RollSize r = (RollSize) combo.getSelectedItem();
+            if (r != null) {
+                settings.setRollSize(r);
+            }
+        });
+
+        JLabel l = new JLabel("Rullino:");
+        l.setForeground(Theme.TEXT_LIGHT);
+
+        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        p.setOpaque(false);
+        p.add(l);
+        p.add(combo);
+        return p;
     }
 
     /** Svuota il carrello previa conferma (azione distruttiva). */
@@ -483,6 +515,7 @@ public class Cassa extends JFrame {
         final String todayStr = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
         final File file = AppPaths.file("report_" + todayStr + ".csv");
         final SalePlanner.Plan plan = SalePlanner.plan(lines, basket, todayStr, file.exists());
+        final RollSize roll = settings.getRollSize();
         btnPrint.setEnabled(false);
 
         // 2) Stampa + scrittura CSV in background (la UI resta reattiva)
@@ -490,12 +523,12 @@ public class Cassa extends JFrame {
             @Override
             protected Void doInBackground() {
                 PrinterJob job = PrinterJob.getPrinterJob();
-                PageFormat pf = ReceiptGeometry.pageFormat();
+                PageFormat pf = ReceiptGeometry.pageFormat(roll);
                 for (SalePlanner.Receipt r : plan.receipts) {
                     if (r.isSingle()) {
-                        printOnce(r.item, pf, job, r.qty);
+                        printOnce(r.item, pf, job, r.qty, roll);
                     } else {
-                        printItem(job, pf, r.name, String.valueOf(r.qty), "", r.courseLabel);
+                        printItem(job, pf, r.name, String.valueOf(r.qty), "", r.courseLabel, roll);
                     }
                 }
                 try {
@@ -522,14 +555,14 @@ public class Cassa extends JFrame {
     }
 
     /** Stampa un singolo Item con la quantità indicata. */
-    private void printOnce(Item item, PageFormat pf, PrinterJob job, int qty) {
+    private void printOnce(Item item, PageFormat pf, PrinterJob job, int qty, RollSize roll) {
         printItem(job, pf, basket.getName(item), String.valueOf(qty),
-                Money.format(basket.getEffectivePrice(item)), "item");
+                Money.format(basket.getEffectivePrice(item)), "item", roll);
     }
 
     /** Stampa una singola voce sullo scontrino (un'unica via di stampa). */
-    private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label) {
-        ReceiptModel ms = new ReceiptModel(price, qty, name, new Date());
+    private void printItem(PrinterJob job, PageFormat pf, String name, String qty, String price, String label, RollSize roll) {
+        ReceiptModel ms = new ReceiptModel(price, qty, name, new Date(), roll);
         Book book = new Book();
         book.append(ms, pf);
         job.setPageable(book);

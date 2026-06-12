@@ -27,15 +27,25 @@ public final class ReceiptPreview {
     }
 
     public static void main(String[] args) throws Exception {
-        PageFormat pf = ReceiptGeometry.pageFormat();
         File outDir = new File(System.getProperty("java.io.tmpdir"));
 
+        // Rullino storico 62 mm (deve restare identico).
+        PageFormat pf62 = ReceiptGeometry.pageFormat(RollSize.MM62);
         render(new File(outDir, "scontrino_singolo.png"),
-                new ReceiptModel("2.50", "2", "Coca-cola alla spina", new Date()), pf);
+                new ReceiptModel("2.50", "2", "Coca-cola alla spina", new Date(), RollSize.MM62), pf62);
         render(new File(outDir, "scontrino_menu_portata.png"),
-                new ReceiptModel("", "1", "Panini Porchetta", new Date()), pf);
+                new ReceiptModel("", "1", "Panini Porchetta", new Date(), RollSize.MM62), pf62);
         render(new File(outDir, "scontrino_nome_lungo.png"),
-                new ReceiptModel("7.00", "1", "Vino litro", new Date()), pf);
+                new ReceiptModel("7.00", "1", "Vino litro", new Date(), RollSize.MM62), pf62);
+
+        // Rullino 54 mm (stesse voci, larghezza ridotta).
+        PageFormat pf54 = ReceiptGeometry.pageFormat(RollSize.MM54);
+        render(new File(outDir, "scontrino_singolo_54.png"),
+                new ReceiptModel("2.50", "2", "Coca-cola alla spina", new Date(), RollSize.MM54), pf54);
+        render(new File(outDir, "scontrino_menu_portata_54.png"),
+                new ReceiptModel("", "1", "Panini Porchetta", new Date(), RollSize.MM54), pf54);
+        render(new File(outDir, "scontrino_nome_lungo_54.png"),
+                new ReceiptModel("7.00", "1", "Vino litro", new Date(), RollSize.MM54), pf54);
 
         System.out.println("Anteprime salvate in: " + outDir.getAbsolutePath());
     }

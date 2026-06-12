@@ -11,6 +11,7 @@
 /*.ser
 /groupedItems.json
 /report_*.csv
+/settings.properties
 
 # File di classe compilati
 *.class

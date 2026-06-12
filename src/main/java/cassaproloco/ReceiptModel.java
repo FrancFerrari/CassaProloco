@@ -21,27 +21,41 @@ import javax.swing.SwingConstants;
  * (intestazione, "Nx Nome", prezzo, data, ora) a coordinate fisse su un pannello
  * {@link Paint}.
  *
- * <p>Il layout (posizioni/font delle etichette) è invariato: lo scontrino
- * stampato resta identico. Rispetto a prima non viene più creato un
- * {@code JFrame} per ogni scontrino (era inutile) e la geometria è in
+ * <p>Il layout (posizioni/font delle etichette) sul rullino storico da 62 mm è
+ * <b>invariato</b>: lo scontrino stampato resta identico. Su rullini più stretti
+ * (es. 54 mm) cambia solo la larghezza e le poche etichette ad ancoraggio fisso
+ * (prezzo, intestazioni) vengono traslate orizzontalmente: gli spostamenti sono
+ * nulli a 62 mm, quindi il caso storico non cambia di un pixel. Rispetto a prima
+ * non viene più creato un {@code JFrame} per ogni scontrino e la geometria è in
  * {@link ReceiptGeometry}.
  */
 public class ReceiptModel extends javax.swing.JPanel implements Printable {
 
     private final Paint panel;
 
+    /** Scontrino sul rullino storico da 62 mm (layout identico a prima). */
     public ReceiptModel(String price, String numelements, String name, Date d) {
+        this(price, numelements, name, d, RollSize.MM62);
+    }
+
+    public ReceiptModel(String price, String numelements, String name, Date d, RollSize roll) {
         panel = new Paint();
         panel.setLayout(null);
         panel.setBackground(Color.white);
-        panel.setSize((int) fromCMToPPI(6.2), (int) fromCMToPPI(4));
+        panel.setSize((int) fromCMToPPI(roll.widthCm), (int) fromCMToPPI(RollSize.HEIGHT_CM));
+
+        // Traslazioni orizzontali rispetto al layout di riferimento (62 mm):
+        // a 62 mm dW=0 e dxCenter=0, quindi tutte le coordinate restano IDENTICHE.
+        int wRef = (int) fromCMToPPI(RollSize.MM62.widthCm);
+        int dW = panel.getWidth() - wRef;   // 0 a 62 mm, negativo su rullini più stretti
+        int dxCenter = dW / 2;              // per le intestazioni centrate
 
         if (price != null && !price.trim().isEmpty()) {
             JLabel priceModel = new JLabel(price + "€");
             panel.add(priceModel);
             priceModel.setFont(new Font("Tahoma", 0, 12));
             Dimension size = priceModel.getPreferredSize();
-            priceModel.setBounds(130, 55, size.width, size.height);
+            priceModel.setBounds(130 + dW, 55, size.width, size.height);
         }
 
         JLabel textModel = new JLabel(numelements + "x " + name);
@@ -54,13 +68,13 @@ public class ReceiptModel extends javax.swing.JPanel implements Printable {
         panel.add(proloco);
         proloco.setFont(new Font("Tahoma", 0, 8));
         Dimension size2 = proloco.getPreferredSize();
-        proloco.setBounds(55, 17, size2.width + 50, size2.height);
+        proloco.setBounds(55 + dxCenter, 17, size2.width + 50, size2.height);
 
         JLabel sagra = new JLabel("Antica Sagra di S.Luigi ");
         panel.add(sagra);
         sagra.setFont(new Font("Tahoma", Font.BOLD, 8));
         Dimension size4 = sagra.getPreferredSize();
-        sagra.setBounds(39, 7, size4.width + 50, size4.height);
+        sagra.setBounds(39 + dxCenter, 7, size4.width + 50, size4.height);
 
         String dateString = new SimpleDateFormat("dd/MM/yyyy").format(d);
         JLabel label = new JLabel("Data:    " + dateString);
