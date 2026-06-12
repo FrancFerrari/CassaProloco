@@ -12,6 +12,7 @@
 /groupedItems.json
 /report_*.csv
 /settings.properties
+/receiptTemplate.json
 
 # File di classe compilati
 *.class
