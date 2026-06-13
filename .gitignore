@@ -13,6 +13,7 @@
 /report_*.csv
 /settings.properties
 /receiptTemplate.json
+/cassa-giornata.txt*
 
 # File di classe compilati
 *.class

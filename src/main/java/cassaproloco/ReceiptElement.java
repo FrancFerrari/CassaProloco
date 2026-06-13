@@ -27,6 +27,7 @@ public class ReceiptElement implements Serializable {
         /** Campo dinamico: data. */               DATE,
         /** Campo dinamico: ora. */                TIME,
         /** Testo fisso a piè di scontrino. */     FOOTER,
+        /** Riga di testo libera, aggiunta dall'utente. */ TEXT,
         /** Immagine/logo. */                      LOGO
     }
 

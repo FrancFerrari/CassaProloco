@@ -8,6 +8,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.RenderingHints;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
 import java.awt.print.PrinterException;
@@ -16,7 +17,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 
@@ -130,11 +131,32 @@ public class ReceiptModel extends javax.swing.JPanel implements Printable {
             }
             int w = el.imgW > 0 ? el.imgW : img.getWidth(null);
             int h = el.imgH > 0 ? el.imgH : img.getHeight(null);
-            JLabel lbl = new JLabel(new ImageIcon(img.getScaledInstance(w, h, Image.SCALE_SMOOTH)));
-            lbl.setBounds(x, el.y, w, h);
-            panel.add(lbl);
+            // Disegna l'immagine ORIGINALE scalata al riquadro alla risoluzione di
+            // stampa (interpolazione liscia), invece di pre-ridurla a pochi pixel.
+            ImagePanel ip = new ImagePanel(img);
+            ip.setBounds(x, el.y, w, h);
+            panel.add(ip);
         } catch (Exception ignored) {
             // logo illeggibile: semplicemente non lo si stampa (la stampa non si rompe)
+        }
+    }
+
+    /** Disegna un'immagine scalata ai propri limiti a piena risoluzione (logo nitido). */
+    private static final class ImagePanel extends JComponent {
+        private final Image img;
+        ImagePanel(Image img) {
+            this.img = img;
+            setOpaque(false);
+        }
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.drawImage(img, 0, 0, getWidth(), getHeight(), null);
+            g2.dispose();
         }
     }
 

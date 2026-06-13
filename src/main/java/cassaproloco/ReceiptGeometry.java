@@ -38,7 +38,10 @@ final class ReceiptGeometry {
         Paper paper = pf.getPaper();
         double w = fromCMToPPI(roll.widthCm), h = fromCMToPPI(RollSize.HEIGHT_CM);
         paper.setSize(w, h);
-        paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0), w, h - fromCMToPPI(1));
+        // Area stampabile a tutta l'altezza: prima era (h - 1 cm) e tagliava il
+        // contenuto 1 cm prima della fine (visibile sul 54 mm da 40 mm). Sul 62 mm
+        // non cambia nulla (la stampante taglia comunque a ~29 mm).
+        paper.setImageableArea(fromCMToPPI(0.25), fromCMToPPI(0), w, h);
         pf.setOrientation(PageFormat.PORTRAIT);
         pf.setPaper(paper);
         return pf;

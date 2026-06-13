@@ -19,6 +19,7 @@ import java.awt.print.PrinterJob;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
@@ -64,6 +65,8 @@ public class Cassa extends JFrame {
     private final ReceiptTemplateStore templateStore =
             new ReceiptTemplateStore(AppPaths.file("receiptTemplate.json"));
     private ReceiptTemplate template = templateStore.load();
+    private final CashDay cashDay = CashDay.load(AppPaths.file("cassa-giornata.txt"));
+    private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final List<Item> itemsBere = new ArrayList<>();
     private final List<Item> itemsPrimi = new ArrayList<>();
@@ -82,6 +85,7 @@ public class Cassa extends JFrame {
     private JScrollPane basketScroll;
     private JLabel lblTotal;
     private JLabel lblCount;
+    private JLabel lblGiornata;
     private JButton btnPrint;
 
     public Cassa() throws IOException {
@@ -102,6 +106,10 @@ public class Cassa extends JFrame {
         loadMenuItems();
         loadGroupedItems();
         showCategory(primi);
+
+        // a finestra mostrata: se è rimasta aperta una giornata di un giorno
+        // precedente (dimenticata), chiede se chiuderla
+        SwingUtilities.invokeLater(this::checkStaleCashDay);
     }
 
     // ============================ LATO SINISTRO ============================
@@ -193,6 +201,8 @@ public class Cassa extends JFrame {
                 this::openMenuManager));
         toolbar.add(toolbarButton("SCONTRINO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
                 this::openReceiptEditor));
+        toolbar.add(toolbarButton("CHIUSURA", Theme.DANGER_BASE, Theme.DANGER_HOVER, Theme.DANGER_CLICK, fontSize,
+                this::closeCashDay));
         return toolbar;
     }
 
@@ -276,9 +286,13 @@ public class Cassa extends JFrame {
         rightInfo.add(buildRollSelector());
         rightInfo.add(lblCount);
 
+        lblGiornata = new JLabel();
+        lblGiornata.setHorizontalAlignment(SwingConstants.CENTER);
+        actions.add(lblGiornata, BorderLayout.CENTER);
         actions.add(leftBtns, BorderLayout.WEST);
         actions.add(rightInfo, BorderLayout.EAST);
         bottom.add(actions, BorderLayout.NORTH);
+        updateGiornataLabel();
 
         // Riga stampa + totale
         JPanel printRow = new JPanel(new GridLayout(1, 0));
@@ -488,6 +502,91 @@ public class Cassa extends JFrame {
         frame.setVisible(true);
     }
 
+    // ============================ GIORNATA DI CASSA ============================
+
+    /** Aggiorna l'etichetta che mostra la giornata di cassa corrente. */
+    private void updateGiornataLabel() {
+        if (lblGiornata == null) {
+            return;
+        }
+        if (cashDay.isOpen()) {
+            lblGiornata.setText("Giornata: " + cashDay.currentDate().format(DAY_FMT));
+            lblGiornata.setForeground(Theme.TEXT_DARK);
+        } else {
+            lblGiornata.setText("Giornata: chiusa");
+            lblGiornata.setForeground(Theme.TEXT_LIGHT);
+        }
+    }
+
+    /** Totale incassato (formattato) del giorno indicato, letto dal CSV. */
+    private String readDayTotal(LocalDate d) {
+        File csv = AppPaths.file("report_" + d.format(DateTimeFormatter.ISO_DATE) + ".csv");
+        if (!csv.isFile()) {
+            return Money.format(0);
+        }
+        try {
+            return Money.format(new SalesReportRepository().aggregate(csv).totalCents);
+        } catch (IOException ex) {
+            return "?";
+        }
+    }
+
+    /** Chiude la giornata di cassa corrente (previa conferma), mostrando il totale. */
+    private void closeCashDay() {
+        if (!cashDay.isOpen()) {
+            JOptionPane.showMessageDialog(this, "Nessuna giornata di cassa aperta da chiudere.",
+                    "Chiusura cassa", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (basketPanel.getArticlesCount() > 0) {
+            int w = JOptionPane.showConfirmDialog(this,
+                    "Ci sono articoli nel carrello non ancora stampati.\nChiudere lo stesso la giornata?",
+                    "Carrello non vuoto", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (w != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+        LocalDate d = cashDay.currentDate();
+        String total = readDayTotal(d);
+        int r = JOptionPane.showConfirmDialog(this,
+                "Chiudere la giornata di cassa del " + d.format(DAY_FMT) + "?\n"
+              + "Totale incassato: " + total + "€\n\n"
+              + "Le vendite successive faranno parte di una nuova giornata.",
+                "Chiusura cassa", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        if (r != JOptionPane.YES_OPTION) {
+            return;
+        }
+        cashDay.close();
+        updateGiornataLabel();
+        JOptionPane.showMessageDialog(this,
+                "Giornata " + d.format(DAY_FMT) + " chiusa.\nTotale: " + total + "€",
+                "Chiusura cassa", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /**
+     * All'avvio, se risulta ancora aperta una giornata di un giorno precedente ed
+     * è ormai mattina inoltrata, probabilmente ci si è dimenticati di chiuderla:
+     * lo si chiede. Prima delle 6 del mattino invece si assume che sia una serata
+     * ancora in corso (sforata oltre mezzanotte) e la si lascia aperta.
+     */
+    private void checkStaleCashDay() {
+        if (cashDay.isOpen()
+                && cashDay.currentDate().isBefore(LocalDate.now())
+                && LocalTime.now().isAfter(LocalTime.of(6, 0))) {
+            LocalDate old = cashDay.currentDate();
+            int r = JOptionPane.showConfirmDialog(this,
+                    "Risulta ancora aperta la giornata di cassa del " + old.format(DAY_FMT) + ".\n"
+                  + "Sembra iniziato un nuovo giorno.\n\n"
+                  + "Sì = chiudila (le prossime vendite saranno una nuova giornata)\n"
+                  + "No = continua su quella giornata",
+                    "Giornata ancora aperta", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (r == JOptionPane.YES_OPTION) {
+                cashDay.close();
+            }
+            updateGiornataLabel();
+        }
+    }
+
     // ============================ STAMPA ============================
 
     /**
@@ -523,7 +622,12 @@ public class Cassa extends JFrame {
                     qty, line.isUnitPrinting()));
         }
 
-        final String todayStr = LocalDate.now().format(DateTimeFormatter.ISO_DATE);
+        // La data è quella della GIORNATA DI CASSA (non l'ora del sistema): una
+        // serata che sfora la mezzanotte resta sulla stessa giornata finché non
+        // si preme "Chiusura cassa".
+        final LocalDate businessDate = cashDay.ensureOpen();
+        updateGiornataLabel();
+        final String todayStr = businessDate.format(DateTimeFormatter.ISO_DATE);
         final File file = AppPaths.file("report_" + todayStr + ".csv");
         final SalePlanner.Plan plan = SalePlanner.plan(lines, basket, todayStr, file.exists());
         final RollSize roll = settings.getRollSize();

@@ -69,6 +69,8 @@ public class ReceiptEditorDialog extends JDialog {
     private final JButton logoBtn = new JButton("Scegli immagine…");
     private final JSpinner logoWSpin = new JSpinner(new SpinnerNumberModel(40, 4, 300, 1));
     private final JSpinner logoHSpin = new JSpinner(new SpinnerNumberModel(40, 4, 300, 1));
+    private final JButton addTextBtn = new JButton("+ Aggiungi testo");
+    private final JButton removeBtn = new JButton("Rimuovi");
 
     public ReceiptEditorDialog(Window owner, ReceiptTemplateStore store, RollSize roll, Runnable onSaved) {
         super(owner, "Personalizza scontrino", ModalityType.APPLICATION_MODAL);
@@ -139,6 +141,11 @@ public class ReceiptEditorDialog extends JDialog {
         side.add(title, c); c.gridy++;
 
         side.add(elementBox, c); c.gridy++;
+        JPanel addRow = new JPanel(new java.awt.GridLayout(1, 2, 6, 0));
+        addRow.setOpaque(false);
+        addRow.add(addTextBtn);
+        addRow.add(removeBtn);
+        side.add(addRow, c); c.gridy++;
         side.add(visibleBox, c); c.gridy++;
         side.add(row("Testo", textField), c); c.gridy++;
         side.add(row("Font", fontBox), c); c.gridy++;
@@ -214,6 +221,50 @@ public class ReceiptEditorDialog extends JDialog {
         logoWSpin.addChangeListener(e -> apply(el -> el.imgW = (Integer) logoWSpin.getValue(), false));
         logoHSpin.addChangeListener(e -> apply(el -> el.imgH = (Integer) logoHSpin.getValue(), false));
         logoBtn.addActionListener(e -> chooseLogo());
+        addTextBtn.addActionListener(e -> onAddText());
+        removeBtn.addActionListener(e -> onRemoveElement());
+    }
+
+    /** Aggiunge una nuova riga di testo libera e la seleziona. */
+    private void onAddText() {
+        ReceiptElement el = new ReceiptElement(Kind.TEXT);
+        el.text = "Nuovo testo";
+        el.fontFamily = "Tahoma";
+        el.fontSize = 10;
+        el.x = 15;
+        el.y = 50;
+        el.align = Align.LEFT;
+        el.anchor = Anchor.LEFT;
+        el.visible = true;
+        working.elements.add(el);
+        canvas.refresh();
+        reloadElementBox();
+        selectElement(el);
+    }
+
+    /** Rimuove l'elemento selezionato (solo le righe di testo aggiunte). */
+    private void onRemoveElement() {
+        ReceiptElement el = canvas.getSelected();
+        if (el == null || el.kind != Kind.TEXT) {
+            return;
+        }
+        working.elements.remove(el);
+        canvas.setSelected(null);
+        canvas.refresh();
+        reloadElementBox();
+        if (elementBox.getItemCount() > 0) {
+            elementBox.setSelectedIndex(0);
+        }
+    }
+
+    /** Seleziona l'elemento nel combo (scatena l'aggiornamento di anteprima e controlli). */
+    private void selectElement(ReceiptElement el) {
+        for (int i = 0; i < elementBox.getItemCount(); i++) {
+            if (elementBox.getItemAt(i).el == el) {
+                elementBox.setSelectedIndex(i);
+                return;
+            }
+        }
     }
 
     /** Applica una modifica all'elemento selezionato e aggiorna l'anteprima. */
@@ -237,8 +288,10 @@ public class ReceiptEditorDialog extends JDialog {
             boolean isText = el != null && el.kind != Kind.LOGO;
             boolean isLogo = el != null && el.kind == Kind.LOGO;
             boolean textEditable = el != null && (el.kind == Kind.HEADER1 || el.kind == Kind.HEADER2
-                    || el.kind == Kind.FOOTER || el.kind == Kind.DATE || el.kind == Kind.TIME);
+                    || el.kind == Kind.FOOTER || el.kind == Kind.DATE || el.kind == Kind.TIME
+                    || el.kind == Kind.TEXT);
 
+            removeBtn.setEnabled(el != null && el.kind == Kind.TEXT);
             visibleBox.setEnabled(el != null);
             visibleBox.setSelected(el != null && el.visible);
 
@@ -383,6 +436,10 @@ public class ReceiptEditorDialog extends JDialog {
                 case TIME:    return "Ora";
                 case FOOTER:  return "Riga in fondo";
                 case LOGO:    return "Logo";
+                case TEXT:
+                    String s = el.text == null ? "" : el.text.trim();
+                    if (s.length() > 18) { s = s.substring(0, 18) + "…"; }
+                    return "Testo: " + (s.isEmpty() ? "(vuoto)" : s);
                 default:      return el.kind.name();
             }
         }
