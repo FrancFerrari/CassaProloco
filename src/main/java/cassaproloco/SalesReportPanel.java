@@ -81,13 +81,9 @@ public class SalesReportPanel extends JPanel {
 
     private void caricaVendite(String data) {
         model.setRowCount(0);
-        File file = new File(csvFolder, "report_" + data + ".csv");
-        if (!file.exists()) {
-            labelTotale.setText("Totale: 0.00 €");
-            return;
-        }
         try {
-            SalesReportRepository.Aggregate agg = repo.aggregate(file);
+            // somma tutte le casse della giornata (resoconto combinato)
+            SalesReportRepository.Aggregate agg = repo.aggregateDate(csvFolder, data);
             for (Map.Entry<String, int[]> entry : agg.byName.entrySet()) {
                 model.addRow(new Object[] {
                         entry.getKey(), entry.getValue()[0],

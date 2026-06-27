@@ -11,20 +11,26 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Preferenze dell'applicazione persistite in un piccolo file
- * {@code settings.properties} accanto agli altri dati.
+ * Preferenze <b>locali</b> di questo PC, persistite in {@code settings.properties}
+ * nella cartella dati locale (quindi diverse per ogni cassa).
  *
- * <p>Per ora contiene solo il formato del rullino di stampa scelto, così che
- * l'operatore lo imposti una volta e resti memorizzato anche dopo il riavvio.
- * In assenza del file (o di valori validi) si parte dai valori predefiniti.
+ * <p>Contiene il formato del rullino di stampa, l'<b>ID di questa cassa</b> (per
+ * distinguere i file delle vendite quando ci sono più casse) e il percorso della
+ * <b>cartella condivisa</b> dove copiare le vendite e da cui leggere il resoconto
+ * combinato. In assenza del file (o di valori validi) si parte dai predefiniti
+ * (cassa singola: nessun ID, nessuna cartella condivisa).
  */
 final class Settings {
 
     private static final Logger LOG = Logger.getLogger(Settings.class.getName());
     private static final String KEY_ROLL = "roll.size";
+    private static final String KEY_CASSA_ID = "cassa.id";
+    private static final String KEY_SHARED_DIR = "shared.dir";
 
     private final File file;
     private RollSize rollSize = RollSize.MM62;
+    private String cassaId = "";
+    private String sharedDir = "";
 
     private Settings(File file) {
         this.file = file;
@@ -38,6 +44,8 @@ final class Settings {
             try (InputStream in = new FileInputStream(file)) {
                 p.load(in);
                 s.rollSize = RollSize.fromName(p.getProperty(KEY_ROLL));
+                s.cassaId = clean(p.getProperty(KEY_CASSA_ID));
+                s.sharedDir = p.getProperty(KEY_SHARED_DIR, "").trim();
             } catch (IOException ex) {
                 LOG.log(Level.WARNING, "Impostazioni non caricate, uso i valori predefiniti", ex);
             }
@@ -57,11 +65,43 @@ final class Settings {
         }
     }
 
+    /** ID di questa cassa (es. "1"); stringa vuota = cassa singola. */
+    String getCassaId() {
+        return cassaId;
+    }
+
+    /** Cartella condivisa dove copiare le vendite e leggere il resoconto combinato; null se non impostata. */
+    File getSharedDir() {
+        return sharedDir.isEmpty() ? null : new File(sharedDir);
+    }
+
+    String getSharedDirPath() {
+        return sharedDir;
+    }
+
+    /** Imposta in un colpo solo ID cassa, rullino e cartella condivisa, e salva. */
+    void update(String cassaId, RollSize rollSize, String sharedDir) {
+        this.cassaId = clean(cassaId);
+        this.rollSize = rollSize != null ? rollSize : this.rollSize;
+        this.sharedDir = sharedDir == null ? "" : sharedDir.trim();
+        save();
+    }
+
+    /** ID ripulito: solo caratteri sicuri per un nome file (lettere, cifre, - e _). */
+    private static String clean(String id) {
+        if (id == null) {
+            return "";
+        }
+        return id.trim().replaceAll("[^A-Za-z0-9_-]", "");
+    }
+
     private void save() {
         Properties p = new Properties();
         p.setProperty(KEY_ROLL, rollSize.name());
+        p.setProperty(KEY_CASSA_ID, cassaId);
+        p.setProperty(KEY_SHARED_DIR, sharedDir);
         try (OutputStream out = new FileOutputStream(file)) {
-            p.store(out, "CassaProloco - preferenze");
+            p.store(out, "CassaProloco - preferenze locali");
         } catch (IOException ex) {
             LOG.log(Level.WARNING, "Impostazioni non salvate", ex);
         }
