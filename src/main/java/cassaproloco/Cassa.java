@@ -9,6 +9,7 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -19,17 +20,17 @@ import java.awt.print.PrinterJob;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -197,12 +198,10 @@ public class Cassa extends JFrame {
                 this::showSalesReport));
         toolbar.add(toolbarButton("OMAGGIO", Theme.WARM_BASE, Theme.WARM_HOVER, Theme.WARM_CLICK, fontSize,
                 basket::setPricesToZero));
-        toolbar.add(toolbarButton("MENU / LISTINO", Theme.GREEN_BASE, Theme.GREEN_HOVER, Theme.GREEN_CLICK, fontSize,
-                this::openMenuManager));
-        toolbar.add(toolbarButton("SCONTRINO", Theme.PRIMARY, Theme.SECONDARY, Theme.ACCENT, fontSize,
-                this::openReceiptEditor));
         toolbar.add(toolbarButton("CHIUSURA", Theme.DANGER_BASE, Theme.DANGER_HOVER, Theme.DANGER_CLICK, fontSize,
                 this::closeCashDay));
+        toolbar.add(toolbarButton("IMPOSTAZIONI", Theme.TEXT_LIGHT, Theme.TEXT_DARK, Theme.TEXT_DARK, fontSize,
+                this::openSettings));
         return toolbar;
     }
 
@@ -283,7 +282,6 @@ public class Cassa extends JFrame {
 
         JPanel rightInfo = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         rightInfo.setOpaque(false);
-        rightInfo.add(buildRollSelector());
         rightInfo.add(lblCount);
 
         lblGiornata = new JLabel();
@@ -320,29 +318,6 @@ public class Cassa extends JFrame {
         b.setPreferredSize(new Dimension(150, 34));
         b.addActionListener(e -> action.run());
         return b;
-    }
-
-    /** Selettore del formato rullino (62/54 mm); la scelta è memorizzata tra i riavvii. */
-    private JComponent buildRollSelector() {
-        JComboBox<RollSize> combo = new JComboBox<>(RollSize.values());
-        combo.setSelectedItem(settings.getRollSize());
-        combo.setFocusable(false);
-        combo.setToolTipText("Larghezza del rullino caricato nella stampante");
-        combo.addActionListener(e -> {
-            RollSize r = (RollSize) combo.getSelectedItem();
-            if (r != null) {
-                settings.setRollSize(r);
-            }
-        });
-
-        JLabel l = new JLabel("Rullino:");
-        l.setForeground(Theme.TEXT_LIGHT);
-
-        JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
-        p.setOpaque(false);
-        p.add(l);
-        p.add(combo);
-        return p;
     }
 
     /** Svuota il carrello previa conferma (azione distruttiva). */
@@ -409,16 +384,32 @@ public class Cassa extends JFrame {
     }
 
     /** Apre la finestra unica listino + creazione menu; al salvataggio ricarica le categorie. */
-    private void openMenuManager() {
-        new MenuManagerDialog(this, AppPaths.base(),
+    private void openMenuManager(Window owner) {
+        new MenuManagerDialog(owner, AppPaths.base(),
                 name -> loadMenuItems(),
                 this::onMenuCreated).setVisible(true);
     }
 
     /** Apre l'editor dello scontrino; al salvataggio ricarica il template per le stampe successive. */
-    private void openReceiptEditor() {
-        new ReceiptEditorDialog(this, templateStore, settings.getRollSize(),
+    private void openReceiptEditor(Window owner) {
+        new ReceiptEditorDialog(owner, templateStore, settings.getRollSize(),
                 () -> template = templateStore.load()).setVisible(true);
+    }
+
+    /** Apre le impostazioni: ID cassa, rullino, scontrino, menu/listino, cartella condivisa. */
+    private void openSettings() {
+        new SettingsDialog(this, settings, AppPaths.base(), this::reloadAll,
+                this::openReceiptEditor, this::openMenuManager).setVisible(true);
+    }
+
+    /** Ricarica tutto dai file locali (dopo cambio impostazioni o allineamento dalla condivisa). */
+    private void reloadAll() {
+        loadMenuItems();
+        menuCombinati.removeAll();
+        loadGroupedItems();
+        menuCombinati.revalidate();
+        menuCombinati.repaint();
+        template = templateStore.load();
     }
 
     private void readItemsFile(File file, List<Item> listItems, JPanel panel) {
@@ -493,7 +484,13 @@ public class Cassa extends JFrame {
     }
 
     private void showSalesReport() {
-        JPanel pannello = new SalesReportPanel(AppPaths.base());
+        // se è impostata la cartella condivisa (e raggiungibile) il resoconto è
+        // combinato fra le casse; altrimenti mostra i dati locali
+        File folder = settings.getSharedDir();
+        if (folder == null || !folder.isDirectory()) {
+            folder = AppPaths.base();
+        }
+        JPanel pannello = new SalesReportPanel(folder);
         JFrame frame = new JFrame("Resoconto Vendite");
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.setContentPane(pannello);
@@ -518,14 +515,12 @@ public class Cassa extends JFrame {
         }
     }
 
-    /** Totale incassato (formattato) del giorno indicato, letto dal CSV. */
+    /** Totale incassato (formattato) di questa cassa per il giorno indicato. */
     private String readDayTotal(LocalDate d) {
-        File csv = AppPaths.file("report_" + d.format(DateTimeFormatter.ISO_DATE) + ".csv");
-        if (!csv.isFile()) {
-            return Money.format(0);
-        }
         try {
-            return Money.format(new SalesReportRepository().aggregate(csv).totalCents);
+            int cents = new SalesReportRepository()
+                    .aggregateDate(AppPaths.base(), d.format(DateTimeFormatter.ISO_DATE)).totalCents;
+            return Money.format(cents);
         } catch (IOException ex) {
             return "?";
         }
@@ -571,8 +566,7 @@ public class Cassa extends JFrame {
      */
     private void checkStaleCashDay() {
         if (cashDay.isOpen()
-                && cashDay.currentDate().isBefore(LocalDate.now())
-                && LocalTime.now().isAfter(LocalTime.of(6, 0))) {
+                && cashDay.currentDate().isBefore(CashDay.businessDate(LocalDateTime.now()))) {
             LocalDate old = cashDay.currentDate();
             int r = JOptionPane.showConfirmDialog(this,
                     "Risulta ancora aperta la giornata di cassa del " + old.format(DAY_FMT) + ".\n"
@@ -628,7 +622,8 @@ public class Cassa extends JFrame {
         final LocalDate businessDate = cashDay.ensureOpen();
         updateGiornataLabel();
         final String todayStr = businessDate.format(DateTimeFormatter.ISO_DATE);
-        final File file = AppPaths.file("report_" + todayStr + ".csv");
+        final File file = AppPaths.file(SalesRecorder.reportFileName(todayStr, settings.getCassaId()));
+        final File sharedDir = settings.getSharedDir();
         final SalePlanner.Plan plan = SalePlanner.plan(lines, basket, todayStr, file.exists());
         final RollSize roll = settings.getRollSize();
         btnPrint.setEnabled(false);
@@ -647,7 +642,7 @@ public class Cassa extends JFrame {
                     }
                 }
                 try {
-                    new SalesRecorder().append(file, plan.csvRows);
+                    new SalesRecorder().append(file, plan.csvRows, sharedDir);
                 } catch (IOException e) {
                     showError("Errore durante il salvataggio del CSV:\n" + e.getMessage());
                 }
@@ -693,6 +688,7 @@ public class Cassa extends JFrame {
     // ============================ MAIN ============================
 
     public static void main(String[] args) {
+        setupLogging();
         FlatLightLaf.setup();
         UIManager.put("Button.arc", 12);
         UIManager.put("Component.arc", 12);
@@ -710,5 +706,29 @@ public class Cassa extends JFrame {
                     "Errore avvio cassa: " + ex.getMessage(), "ERRORE", JOptionPane.ERROR_MESSAGE);
             }
         });
+    }
+
+    /**
+     * Registra i messaggi su un file ({@code cassa.log} nella cartella dati), con
+     * rotazione. In produzione l'app si avvia con doppio clic (senza console),
+     * quindi senza questo i log andrebbero persi: il file resta l'unica traccia
+     * per capire eventuali problemi durante la serata. Cattura anche le eccezioni
+     * non gestite.
+     */
+    private static void setupLogging() {
+        try {
+            String pattern = new File(AppPaths.base(), "cassa.%g.log").getAbsolutePath();
+            FileHandler fh = new FileHandler(pattern, 2_000_000, 3, true);
+            fh.setFormatter(new SimpleFormatter());
+            Logger root = Logger.getLogger("");
+            root.addHandler(fh);
+            root.setLevel(Level.INFO);
+        } catch (Exception ex) {
+            // se non si può scrivere il log si continua comunque (resta la console)
+            Logger.getLogger(Cassa.class.getName()).log(Level.WARNING, "Log su file non attivo", ex);
+        }
+        Thread.setDefaultUncaughtExceptionHandler((t, ex) ->
+                Logger.getLogger(Cassa.class.getName())
+                        .log(Level.SEVERE, "Errore non gestito nel thread " + t.getName(), ex));
     }
 }

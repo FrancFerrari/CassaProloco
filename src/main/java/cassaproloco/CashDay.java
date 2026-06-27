@@ -6,6 +6,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -23,6 +25,13 @@ import java.util.logging.Logger;
 class CashDay {
 
     private static final Logger LOG = Logger.getLogger(CashDay.class.getName());
+
+    /**
+     * Ora di "taglio" della giornata: le vendite prima di quest'ora contano come
+     * il giorno precedente (una serata che sfora la mezzanotte resta sul giorno
+     * della serata). Le serate finiscono ben prima, quindi è una soglia sicura.
+     */
+    static final LocalTime MORNING_CUTOFF = LocalTime.of(6, 0);
 
     private final File file;
     private LocalDate date; // null = nessuna giornata aperta
@@ -63,9 +72,21 @@ class CashDay {
      */
     LocalDate ensureOpen() {
         if (date == null) {
-            setDate(LocalDate.now());
+            setDate(businessDate(LocalDateTime.now()));
         }
         return date;
+    }
+
+    /**
+     * Data "commerciale" per l'istante indicato: prima delle {@link #MORNING_CUTOFF}
+     * conta come il giorno precedente. Così, anche dopo una chiusura, una vendita
+     * fatta all'1 di notte resta sul giorno della serata e non salta al giorno dopo.
+     */
+    static LocalDate businessDate(LocalDateTime when) {
+        if (when.toLocalTime().isBefore(MORNING_CUTOFF)) {
+            return when.toLocalDate().minusDays(1);
+        }
+        return when.toLocalDate();
     }
 
     /** Chiude la giornata corrente: la prossima vendita ne aprirà una nuova. */
