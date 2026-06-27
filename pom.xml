@@ -55,6 +55,32 @@
                 </executions>
             </plugin>
 
+            <!-- Copia launcher e listini in dist/ così è una cartella di deploy pronta -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-deploy-files</id>
+                        <phase>package</phase>
+                        <goals><goal>copy-resources</goal></goals>
+                        <configuration>
+                            <outputDirectory>${project.basedir}/dist</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}</directory>
+                                    <includes>
+                                        <include>Avvia.bat</include>
+                                        <include>*.cfg</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Esecuzione test JUnit 5 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

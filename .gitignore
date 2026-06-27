@@ -3,6 +3,9 @@
 /target/
 /dist/CassaProloco.jar
 /dist/lib/
+/dist/*.cfg
+/dist/Avvia.bat
+/build-exe/
 
 # NetBeans private settings (macchina-specifici)
 /nbproject/private/
@@ -25,6 +28,7 @@
 
 # Log
 *.log
+*.log.lck
 
 # Archivi di backup
 *.rar
